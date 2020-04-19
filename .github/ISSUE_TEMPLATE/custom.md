@@ -1,6 +1,6 @@
 ---
 name: enhancement issue template
-about: Describe this issue template's purpose here.
+about: Keylime enhancement proposal template
 title: ''
 labels: enhancement
 assignees: ''
