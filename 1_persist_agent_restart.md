@@ -108,8 +108,10 @@ this enhancement.  Describe why the change is important and the benefits to user
 
 Its acceptable that someone may want to manually restart a server (or the server
 restarts as part of an automated work flow) while retaining the configuration
-set up during the adding of the agent to the verifier (`whitelist`, `tpm_policy`)
-without needing to remote and add (or update) the verifier ever time.
+set up during the intial "adding" of the agent to the verifier (`whitelist`,
+`tpm_policy`). They should not have to again add (or update) the verifier
+every time if there is not change in configuration or trust mapping (e.g software
+CA).
 
 ### Goals
 
@@ -118,8 +120,9 @@ List the specific goals of the enhancement.  What is it trying to achieve?  How 
 know that this has succeeded?
 -->
 
-A user restarts the agent on a target node and when the agent is active again
-the verifier proceeds to commence monitoring of delegated measurements again.
+A user restarts the agent on a target node. When the agent is becomes active
+again the verifier proceeds to recommence monitoring the delegated measurements
+from when the target agent was first added to the verifier and registrar.
 
 ### Non-Goals
 
@@ -129,7 +132,7 @@ and make progress.
 -->
 
 Any sort of migration or fault redundancy (although both areas benefit from this
-change )
+change)
 
 ## Proposal
 
@@ -141,17 +144,19 @@ implementation.  The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-A target machine is rebooted with no change in state. This machine should not
-require “re adding” with the keylime tenant again. Once it comes back online,
-the verifier should proceed to recommence run time monitoring.
+A target machine is rebooted with no change in state (measured properties). This
+machine should not require “re adding” with the keylime tenant again.
 
-A new tornado web handler is created within the verifier to listen for requests
-that an agent will emit when it (re)starts.
+Once the target node / agent returns to an online / reachable state, the
+verifier should proceed to recommence run time monitoring.
 
-Code will be introduced to the agent that will perform a `POST` request to
+A new tornado web handler will be created within the verifier to listen for
+requests that an agent will emit when it (re)starts.
+
+Code will be introduced within the agent that will perform a `POST` request to
 inform the verifier an agent has been (re)started. This in turn will cause the
-verifier to perform an `operational_state query` for the UUID of that agent and
-then proceed to perform run time integrity monitoring again.
+verifier to perform an `operational_state query` for the `UUID` of that agent
+and then proceed to perform run time integrity monitoring again.
 
 ### User Stories (optional)
 
@@ -163,12 +168,16 @@ bogged down.
 -->
 
 For any given reason my server reboots. Keylime handles this event and provides
-trust assurity once the server and agent are back online.
+trust monitoring once the server and agent are back online and can be reached
+by the verifier.
 
 Should the machines state have been tampered with during the offline period,
 Keylime will immediate fail the target node accordingly (or likewise show the
 machine is still in the expected trust state according to the delegated
 measurements)
+
+If I want to change measurements, I use the existing `update` command available
+in the Keylime Tenant CLI.
 
 ### Risks and Mitigations
 
@@ -180,7 +189,7 @@ enhancement ecosystem.
 How will security be reviewed and by whom?
 -->
 
-We should be sure we do not introduce securty risks and be mindful of future
+We should be sure we do not introduce security risks and be mindful of future
 enhancements such as multi tenancy, auth and migration.
 
 ## Design Details
@@ -197,10 +206,15 @@ Verifier Changes
 
 A new tornado web handler is created within the verifier to listen for requests
 that an agent will emit when it starts. We will call this `/nudge` for now with
-a more suitable now agreed within this review.
+a more suitable name agreed within this review.
 
 A new `operational_state` named `OFFLINE` will be created for when a machine
-becomes unreachable during a `GET_QUOTE` `operational_state`
+becomes unreachable during a `GET_QUOTE` `operational_state`. This state will be
+set once the agent fails to respond during its retry query period set within
+the `keylime.conf` configuration file.
+
+A new database row will need to be introduced for the `OFFLINE`
+`operational_state`
 
 Agent Changes
 -------------
@@ -208,9 +222,10 @@ Agent Changes
 Code will be introduced to the agent that will perform a `POST` request
 `/nudge` to inform the verifier an agent has been (re)started. This in turn will
 instruct the verifier to perform an `operational_state` query for the `UUID` of
-the concerned agent, should the `operational_state` be `OFFLINE`, it will
-change `operational_state` to `GET_QUOTE` and proceed to (re)start continuous
-monitoring of the node with the previous set measurements (`whitelist`,`tpm_policy`)
+the concerned agent. Should the `operational_state` be `OFFLINE`, it will
+change the `operational_state` to `GET_QUOTE` and proceed to (re)start continuous
+monitoring of the node with the previous set measurements (`whitelist`,
+`tpm_policy`)
 
 Registrar Changes
 ------------------
@@ -221,7 +236,7 @@ design evolves.
 Keylime TPM coms changes
 ------------------------
 
-We will need to assess changes required within our tpm communications. For
+We will need to assess changes required within our TPM communications. For
 example the Agent calls `tpm_startup -c` and takes ownership of the tpm
 every time it starts. The AK handle is also flushed.
 
@@ -230,9 +245,9 @@ its already associated with a verifier.
 
 Rather than bootstrapping itself as a fresh agent, it instead retains its TPM
 set up and instead just instantiates its web service to allow rest API
-interactions with the verifier. These interactions will be a continuum of the
-previous quote `GET` requests from the verifier while retaining the root of
-trust already set up by the registrar.
+interactions with the verifier again. These interactions will be a continuum
+of the previous quote `GET` requests from the verifier, while retaining the
+existing root of trust already set up by the registrar (EKpub and AKPub).
 
 ### Test Plan
 
@@ -265,9 +280,8 @@ this is in the test plan.
 Consider the following in developing an upgrade/downgrade strategy for this enhancement
 -->
 
-All changes will be code based. May need to consider impact of upgrading with
-an agent offline and then the new TPM code changes interacting with the TPM
-setup from the previous release.
+May need to consider impact of upgrading with an agent offline and then the new
+TPM code changes interacting with the TPM setup from the previous release.
 
 ## Drawbacks
 
