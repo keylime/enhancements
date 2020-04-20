@@ -2,7 +2,7 @@
 
 The Keylime Enhancement Tracking and Backlog process is loosely based on the [Kubernetes Enhance Proposal system](https://github.com/kubernetes/enhancements/tree/master/keps)
 
-This repo contains issues that map to enhancements that drive change requests targeted for Keylime and it's ecosystem. These enhancements are umbrellas for new enhancements to be added to Keylime. An enhancement may take multiple releases to complete and be planned accordingly. And an enhancement can be tracked as backlog items before work begins. An enhancement may be filed once there is consensus with the Keylime community (TBD)
+This repo contains issues that map to enhancements that drive change requests targeted for Keylime and it's ecosystem. These enhancements are umbrellas for new features to be added to Keylime. An enhancement may take multiple releases to complete and be planned accordingly. And an enhancement can be tracked as backlog items before work begins. An enhancement may be filed once there is consensus with the Keylime community (TBD)
 
 ## Is My Thing an Enhancement?
 
@@ -25,9 +25,9 @@ If you are not sure, please ask within a keylime issue.
 ## When to Create a New Enhancement
 
 Create an issue here once you:
-- have circulated your idea to see if there is interest
-- (optionally) have done a prototype in your own fork
-- have identified people who agree to work on the enhancement
+- have circulated your idea to see if there is interest (for example on the
+  keylime mailing list or gitter community channel)
+- (optional) have done a prototype in your own fork
 - are ready to be the project-manager for the enhancement
 
 ## Why are Enhancements Tracked
@@ -51,6 +51,6 @@ Please do not comment on the enhancement issue to:
 
 ## How to create an enhancement
 
-Enhancements require to actions. Create an issue in keylime/enhancements and make a pull request to keylime/enhancements (using the available template). The issue is then used to map to the pull request, track the enhancement in the project board and map it to a planned milestone release. The pull request to keylime/enhancements is to allow community review and approve the enhancement.
+Create an issue in keylime/enhancements and then make a pull request to keylime/enhancements (using the available template). The issue is then used to map to the pull request, track the enhancement in the project board and map it to a planned milestone release. The pull request to keylime/enhancements is to allow community review and approve the enhancement.
 
-Once the pull request is approved and merged, the issue can be moved from "Enhancements" to "Backlog" and work can begin (this is not to say you can pre stage work into your own fork).
+Once the pull request is approved and then merged, the issue can be moved from "Enhancements" to "Backlog" and work can begin (this is not to say you can pre stage work into your own fork).
