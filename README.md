@@ -2,7 +2,7 @@
 
 The Keylime Enhancement Tracking and Backlog process is loosely based on the [Kubernetes Enhance Proposal system](https://github.com/kubernetes/enhancements/tree/master/keps)
 
-This repo contains issues that map to enhancements that drive change requests targeted for Keylime and it's ecosystem. These enhancements are umbrellas for new features to be added to Keylime. An enhancement may take multiple releases to complete and be planned accordingly. An enhancement can be tracked as backlog items before work begins.
+This repo contains issues that map to enhancements that drive change requests targeted for Keylime and it's ecosystem. These enhancements are umbrellas for new features to be added to Keylime. An enhancement may take multiple releases to complete and be planned accordingly.
 
 ## Is My Thing an Enhancement?
 
@@ -10,7 +10,7 @@ We are trying to figure out the exact shape of an enhancement. Until then here a
 
 An enhancement is anything that:
 
-- needs significant effort or changes to Keylime in a significant way
+- requires significant effort or changes to Keylime in a significant way
 - impacts the operation of Keylime substantially such that engineers using Keylime will need retraining
 - users will notice and come to rely on it.
 
@@ -53,7 +53,7 @@ Create an issue in keylime/enhancements and then make a pull request to keylime/
 New enhancements are labelled as 'backlog'
 
 Once the pull request is approved and then merged it is labelled as 'in-progress'
-and work is expected to start (this is not to say you cannoy pre stage work into
+and work is expected to start (this is not to say you cannot pre stage work into
 your own fork first).
 
 When you then make pull requests to any given Keylime repository, please reference
