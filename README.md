@@ -65,3 +65,7 @@ labelled as in 'backlog' or 'in-progress'.
 Once the feature is delivered (the "Release Signoff Checklist" is completed) and all
 pull requests are merged, with a planned and agreed release (TODO) then the 'complete'
 label can be applied.
+
+## I want to raise an issue around the enhancements process
+
+Sure, go ahead. Please use `[Admin]` in the subject field of the issue and ensure it will then be tagged as `house-keeping`.
