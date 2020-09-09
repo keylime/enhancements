@@ -332,8 +332,8 @@ of the `GET` method.
   the caller to be the admin of the group in which the user resides or the root admin.
 
 `POST`: Allows creation of a new group. The following params should be populated:
-      `group_name`: Username of the new user
-      `group_desc`: Password of the new user
+ `group_name`: Username of the new user
+ `group_desc`: Password of the new user
 =
 `PATCH`: Patch will be used to change groups name.
 
