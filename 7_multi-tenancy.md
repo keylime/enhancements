@@ -331,10 +331,10 @@ of the `GET` method.
 `GET`: Get a list of groups or details of a specific group from the system. Requires
   the caller to be the admin of the group in which the user resides or the root admin.
 
-`POST`: Allows creation of a new group. The following params should be populated:
+`POST`: Allows creation of a new group. The following params should be populated;
  `group_name`: Username of the new user
  `group_desc`: Password of the new user
-=
+
 `PATCH`: Patch will be used to change groups name.
 
 `DELETE`: Allows deletion of a group. This operation will cascade remove all users
