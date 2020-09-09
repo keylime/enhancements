@@ -70,7 +70,7 @@ checklist items _must_ be updated for the enhancement to be released.
 -->
 
 - [ ] Enhancement issue in release milestone, which links to pull request in [keylime/enhancements]
-- [ ] Core members have approved the issue with the label `implementable`
+- [ ] Core members have approved the issue with the label `in-progress`
 - [ ] Design details are appropriately documented
 - [ ] Test plan is in place
 - [ ] User-facing documentation has been created in [keylime/keylime-docs]
@@ -96,7 +96,7 @@ A good summary is probably at least a paragraph in length.
 Keylime is at present monolithic in that there is no concept of multi tenancy in
 the form of groups or users.
 
-This enhancement sets the foundation for scoping Keylime into a mutli tenant
+This enhancement sets the foundation for developing Keylime into a multi tenant
 capable system.
 
 ## Motivation
@@ -110,11 +110,11 @@ Keylime works in the context of a single tenant. Any agents registered within
 Keylime can be seen by all (who have access to the system).
 
 Should an owner of a Keylime deployment want to host multiple tenants, there will
-be no isolation on interaction of view and management rights of a registered agent.
+be no isolation of view and management rights for a registered agent.
 
 An owner of a Keylime deployment may want to provide services to multiple tenants
 (or users) and allow them to manage and create their own users , groups and
-administrators while isolating views of agents to just members of that group.
+administrators while isolating views of agents to just members of that group.d
 
 ### Goals
 
@@ -123,15 +123,15 @@ List the specific goals of the enhancement.  What is it trying to achieve?  How 
 know that this has succeeded?
 -->
 
-Implement an a rudimentary multi tenancy model within Keylime to allow the creation
-of users, groups and administrators of said groups.
+Implement an a rudimentary multi tenancy model within Keylime to allow the
+creation of users, groups and group administrators.
 
 Implement a root admin who has an overall level or privilege to create and manage
 groups and group administrators.
 
 Implement a means to fix an agent to a group and user.
 
-Provide a scalable authentication system to arbiter access of keylimes APIs.
+Provide a scalable authentication system to arbiter access of keylime's APIs.
 
 ### Non-Goals
 
@@ -150,17 +150,15 @@ implementation.  The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-This proposal will seek to implement the following features:
+This proposal will seek to develop the following features:
 
 Implement database amendments to introduce groups, users and roles.
 
 Implement a method for a user or administrator to provide credentials to prove
-their identity to Keylime. In turn these accounts can be disabled, enforce
-password rotation and have view rights limited to those granted to them via group
-administrators.
+their identity to Keylime.
 
-Implement authentication in the form of JSON Web Tokens to allow federation over
-multiple instances of Keylime.
+Implement authentication in the form of JSON Web Tokens to allow federation
+role based scoping of tokens for use across multiple instances of Keylime.
 
 Implement a means of associating an `agent_id` to a `group_id` and a means for
 administrators to re-associate the `agent_id` with a different `group_id`
@@ -205,6 +203,12 @@ unremovable. Creation of new groups will only be possible using the root admin
 account. When a new group is created, an admin role for that group will be
 automatically created.
 
+Any user of Keylime, will first need to call an Auth Handler to first authenticate
+their user account. Should this authentication pass, the user will be provided
+with a JWT token. This token will then be added to as a Bearer Token to subsequent
+calls to protected handlers allowing them to interact with the verifier.
+
+An example below of a an admin authenticating themselves:
 
 ### JWTauth
 
@@ -222,6 +226,27 @@ authorization, be provided with a time based scoped JWT token.
 
 To deliver this feature it will require a `@JWTauth` python decorator which can
 easily be set over each handler that requires authorised access controls.
+
+JWT will be configurable in `keylime.conf` where users of Keylime can set a
+preferred HMAC, for example:
+
+`jwt_dsa = HS512`
+
+#### Examples of use
+
+An admin authenticates themselves to the `\auth` authentication URI.
+
+```
+curl --location --request GET 'https://verifier:8881/auth?username=admin&password=password'
+```
+
+The admin then makes a call to create a user using a Bearer token received as
+part of the previous call to the `/auth` handler.
+
+```
+curl --location --request POST 'https://verifier:8881/user/register?username=peter&password=password&email=peter@gmail.com&group_id=1234' \
+--header 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJncm91cF9pZCI6MSwicm9sZV9pZCI6MSwiZXhwIjoxNTkyOTMwNjM0fQ.qiAl6n9a_PlGsiLZMxiWtzs_uoq2tAtCr29Gu8euaph0rLXLMZwj41sq5p3yM-u7xiMtRXmrS9MoCpgIyh2owA'
+```
 
 ### Database changes
 
