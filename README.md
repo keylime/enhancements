@@ -6,7 +6,7 @@ The Keylime Enhancement Tracking and Backlog process is loosely based on the [Ku
 
 This repo contains issues that map to enhancements that drive change requests targeted for Keylime and it's ecosystem. These enhancements are umbrellas for new features to be added to Keylime. An enhancement may take multiple releases to complete and be planned accordingly.
 
-To view accepted enhancments under current development view with the [in-progress label](https://github.com/keylime/enhancements/issues?q=is%3Aissue+is%3Aopen+label%3Ain-progress)
+To view accepted enhancements under current development view with the [in-progress label](https://github.com/keylime/enhancements/issues?q=is%3Aissue+is%3Aopen+label%3Ain-progress)
 
 To view enhancements under review, view with the [backlog label](https://github.com/keylime/enhancements/issues?q=is%3Aissue+is%3Aopen+label%3Abacklog)
 
@@ -55,6 +55,8 @@ Please do not comment on the enhancement issue to:
 ## How to create an enhancement
 
 Create an issue in keylime/enhancements and then make a pull request to keylime/enhancements (using the available template). The issue is then used to map to the pull request, track the enhancement in the project board and map it to a planned milestone release. The pull request to keylime/enhancements is to allow community review and approve the enhancement.
+
+You may make your pull request as a [Draft Pull Request](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request) and then change it to a regular pull request when its ready for review. 
 
 New enhancements are labelled as 'backlog'
 
