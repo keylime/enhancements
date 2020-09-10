@@ -8,7 +8,7 @@ This repo contains issues that map to enhancements that drive change requests ta
 
 To view accepted enhancments under current development view with the [in-progress label](https://github.com/keylime/enhancements/issues?q=is%3Aissue+is%3Aopen+label%3Ain-progress)
 
-To view enhancments under review, view with the [backlog label](https://github.com/keylime/enhancements/issues?q=is%3Aissue+is%3Aopen+label%3Abacklog)
+To view enhancements under review, view with the [backlog label](https://github.com/keylime/enhancements/issues?q=is%3Aissue+is%3Aopen+label%3Abacklog)
 
 ## Is My Thing an Enhancement?
 
