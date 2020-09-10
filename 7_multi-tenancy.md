@@ -94,8 +94,7 @@ A good summary is probably at least a paragraph in length.
 -->
 
 Keylime is at present monolithic in that there is no concept of multi tenancy in
-the form of groups or users and a granular level permissions on interaction
-with agents.
+the form of groups or users and permission based access control of agents.
 
 This enhancement sets the foundation for developing Keylime into a multi tenant
 capable system.
@@ -122,15 +121,15 @@ List the specific goals of the enhancement.  What is it trying to achieve?  How 
 know that this has succeeded?
 -->
 
-Implement an a multi tenancy model within Keylime to allow the creation and
+* Implement a multi tenancy model within Keylime to allow the creation and
 management of users, groups and group administrators.
 
-Implement a root admin who has an overall level or privilege to create and manage
+* Implement a root admin who has an overall level or privilege to create and manage
 groups and group administrators.
 
-Implement a means to fix an agent to a group and user.
+* Implement a means to fix an agent to a group and user.
 
-Provide a scalable authentication system to arbiter access of Keylime's APIs.
+* Provide a scalable authentication system to arbiter access of Keylime's APIs.
 
 ### Non-Goals
 
@@ -138,6 +137,10 @@ Provide a scalable authentication system to arbiter access of Keylime's APIs.
 What is out of scope for this enhancement?  Listing non-goals helps to focus discussion
 and make progress.
 -->
+
+Separate data view controls (such as logs) will not be present in the verifier
+with this change. This would require a significant refactor of how the verifier
+operates and therefore requires its own enhancement. 
 
 ## Proposal
 
