@@ -1,8 +1,14 @@
 # Keylime Enhancement Tracking and Backlog
 
+The enhancement process has been in implemented to provide a way to review and assess the impact(s) of significant changes to Keylime. This in turn eases the management of our roadmap and release planning.
+
 The Keylime Enhancement Tracking and Backlog process is loosely based on the [Kubernetes Enhance Proposal system](https://github.com/kubernetes/enhancements/tree/master/keps)
 
 This repo contains issues that map to enhancements that drive change requests targeted for Keylime and it's ecosystem. These enhancements are umbrellas for new features to be added to Keylime. An enhancement may take multiple releases to complete and be planned accordingly.
+
+To view accepted enhancments under current development view with the [in-progress label](https://github.com/keylime/enhancements/issues?q=is%3Aissue+is%3Aopen+label%3Ain-progress)
+
+To view enhancments under review, view with the [backlog label](https://github.com/keylime/enhancements/issues?q=is%3Aissue+is%3Aopen+label%3Abacklog)
 
 ## Is My Thing an Enhancement?
 
