@@ -94,7 +94,7 @@ A good summary is probably at least a paragraph in length.
 -->
 
 Keylime is at present monolithic in that there is no concept of multi tenancy in
-the form of groups or users.
+the form of groups or users and a granular level of viewing permissions.
 
 This enhancement sets the foundation for developing Keylime into a multi tenant
 capable system.
@@ -109,12 +109,10 @@ this enhancement.  Describe why the change is important and the benefits to user
 Keylime works in the context of a single tenant. Any agents registered within
 Keylime can be seen by all (who have access to the system).
 
-Should an owner of a Keylime deployment want to host multiple tenants, there will
-be no isolation of view and management rights for a registered agent.
-
 An owner of a Keylime deployment may want to provide services to multiple tenants
-(or users) and allow them to manage and create their own users , groups and
-administrators while isolating views of agents to just members of that group.d
+and allow them to manage and create their own users , groups and
+administrators while isolating control of agents to only members of a certain
+group(s).
 
 ### Goals
 
@@ -123,15 +121,15 @@ List the specific goals of the enhancement.  What is it trying to achieve?  How 
 know that this has succeeded?
 -->
 
-Implement an a rudimentary multi tenancy model within Keylime to allow the
-creation of users, groups and group administrators.
+Implement an a multi tenancy model within Keylime to allow the creation and
+management of users, groups and group administrators.
 
 Implement a root admin who has an overall level or privilege to create and manage
 groups and group administrators.
 
 Implement a means to fix an agent to a group and user.
 
-Provide a scalable authentication system to arbiter access of keylime's APIs.
+Provide a scalable authentication system to arbiter access of Keylime's APIs.
 
 ### Non-Goals
 
@@ -139,6 +137,21 @@ Provide a scalable authentication system to arbiter access of keylime's APIs.
 What is out of scope for this enhancement?  Listing non-goals helps to focus discussion
 and make progress.
 -->
+
+implementation of multi tenancy requires a substantially rework of the code base
+and introduction of new functionality. To provide ease of review and implementation
+this enhancement will be delivered in different stages as individual pull
+requests.
+
+This will be done in a manner that limits the need to break backwards compatibility
+or require complex upgrade tasks.
+
+The first change will introduce the JWT framework and the means to create and
+manage users.
+
+The second change will implement a system to manage agents within a Multi Tenancy
+manner, such as register an agent to a particular group and / or user and allow
+administrators to move agents to another group. 
 
 ## Proposal
 
@@ -345,6 +358,16 @@ of the `GET` method.
 `AuthHandler` - will extract the username and password from a `GET` request to
  an `auth` uri. The `werkzeug.security` module will then be used to perform
  a database lookup using `check_password_hash`
+
+### Agent registration changes
+
+Changes will be made so that when an authenticated user adds an agent, the
+agent will be associated with the user and the group in which the user belongs.
+
+Further commands (add, delete, update) made to the verifier against a particular
+agent(s) will require the caller to be the same user (within the same group)
+that originally added the agent or the administrator of the group or the root
+adminstrator.
 
 ### Test Plan
 
