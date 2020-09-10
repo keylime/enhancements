@@ -94,7 +94,7 @@ A good summary is probably at least a paragraph in length.
 -->
 
 Keylime is at present monolithic in that there is no concept of multi tenancy in
-the form of groups or users and permission based access control of agents.
+the form of groups, users and permission based access control of Keylime agents.
 
 This enhancement sets the foundation for developing Keylime into a multi tenant
 capable system.
@@ -179,8 +179,18 @@ How will security be reviewed and by whom?
 Multi tenancy introduces its own set of security risks in the form of information
 leakage and unauthorised access.
 
+To address this the enhancement will utlise JWT tokens and password hashing
+for passwords that are stored within the database.
+
 This change will seek to use existing security modules such as PyJWT and will
-build upon the existing access controls already present in Keylime (mTLS).
+build upon the existing access controls already present in Keylime (mTLS). Therefore
+access control will be more robust as a "belt and braces" access control
+configuration of both scoped token based sessions and mTLS certificates can be
+leveraged.
+
+Username passwords will be salted within the database  to mitigate rainbow table
+attacks (in the case of a compromised database) and the sending of passwords
+within HTTP headers will be encrypted via mTLS / TLS.
 
 ## Design Details
 
@@ -295,7 +305,7 @@ Declarative mappings will also be made from `users` to `groups` and `roles`
 | role_name | String                                                              |
 | group_id  | String (declarative mapping to the groups and users table)          |
 
-Amendments will be made to the `verifiermain` table create s declarative mapping
+Amendments will be made to the `verifiermain` table create to declarative mapping
 to the groups table of the `verifiermain:agent_id` row.
 
 The `werkzeug` library will be used for secure password salting of database
@@ -315,8 +325,8 @@ Two new handlers will be introduced:
 `UsersHandler` - will provide the following HTTP methods:
 
 * `GET`: Get a list of users or details of a specific user from the system (requires
-  the caller to be the admin of the group in which the user resides. A call for
-  a specific user can only be made by the admin or the user themselves.
+  the caller to be the admin of the group in which the user resides or the root admin.
+  A call for a specific user can only be made by admins or the user themselves.
 
 * `POST`: Limited to only root admin or group admin. Allows creation of a specific
     user. The following params should be populated:
@@ -339,18 +349,19 @@ A `role_id` will be auto generated (incremented from last value).
 All calls to the `GroupsHandler` require a root admin account, with the exception
 of the `GET` method.
 
-* `GET`: Get a list of groups or details of a specific group from the system. Requires
-  the caller to be the admin of the group in which the user resides or the root admin.
+* `GET`: Get a list of groups or details of a specific group from the system.
 
 * `POST`: Allows creation of a new group. The following params should be populated;
-    * `group_name`: Username of the new user
-    * `group_desc`: Password of the new user
+    * `group_name`: The name of the group.
+    * `group_desc`: A description of the group.
 
 
-* `PATCH`: Patch will be used to change groups name.
+* `PATCH`: Patch will be used to change groups name or description.
 
-* `DELETE`: Allows deletion of a group. This operation will cascade remove all users
- and agents and admins that exist within the group.
+* `DELETE`: Allows deletion of a group. This operation will cascade remove all
+  users and agents the admin that exist within the group. the recommendation is
+  that admins should move all agents and users out of the group (should they wish
+  to retain them).
 
 #### AuthHandler
 
