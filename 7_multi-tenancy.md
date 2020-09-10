@@ -94,7 +94,8 @@ A good summary is probably at least a paragraph in length.
 -->
 
 Keylime is at present monolithic in that there is no concept of multi tenancy in
-the form of groups or users and a granular level of viewing permissions.
+the form of groups or users and a granular level permissions on interaction
+with agents.
 
 This enhancement sets the foundation for developing Keylime into a multi tenant
 capable system.
@@ -107,7 +108,7 @@ this enhancement.  Describe why the change is important and the benefits to user
 -->
 
 Keylime works in the context of a single tenant. Any agents registered within
-Keylime can be seen by all (who have access to the system).
+Keylime can be managed by anyone with the required bootstrap certificates (mTLS).
 
 An owner of a Keylime deployment may want to provide services to multiple tenants
 and allow them to manage and create their own users , groups and
@@ -137,21 +138,6 @@ Provide a scalable authentication system to arbiter access of Keylime's APIs.
 What is out of scope for this enhancement?  Listing non-goals helps to focus discussion
 and make progress.
 -->
-
-implementation of multi tenancy requires a substantially rework of the code base
-and introduction of new functionality. To provide ease of review and implementation
-this enhancement will be delivered in different stages as individual pull
-requests.
-
-This will be done in a manner that limits the need to break backwards compatibility
-or require complex upgrade tasks.
-
-The first change will introduce the JWT framework and the means to create and
-manage users.
-
-The second change will implement a system to manage agents within a Multi Tenancy
-manner, such as register an agent to a particular group and / or user and allow
-administrators to move agents to another group. 
 
 ## Proposal
 
@@ -367,7 +353,35 @@ agent will be associated with the user and the group in which the user belongs.
 Further commands (add, delete, update) made to the verifier against a particular
 agent(s) will require the caller to be the same user (within the same group)
 that originally added the agent or the administrator of the group or the root
-adminstrator.
+administrator.
+
+### TLS Changes
+
+Operators will be provided with the following choices:
+
+1. mTLS and JWT auth.
+2. TLS and JWT Auth.
+
+TLS will be added to make it easier to set up tenant nodes and multi
+verifiers. Currently it is required to create certification on the verifier
+and then transfer client certs to the tenant machine and register.
+
+### Pull request approach
+
+Implementation of multi tenancy requires a substantially rework of the code base
+and introduction of new functionality. To provide ease of review and implementation
+this enhancement will be delivered in different stages as individual pull
+requests.
+
+This will be done in a manner that limits the need to break backwards compatibility
+or require complex upgrade tasks.
+
+The first change will introduce the JWT framework and the means to create and
+manage users.
+
+The second change will implement a system to manage agents within a Multi Tenancy
+manner, such as register an agent to a particular group and / or user and allow
+administrators to move agents to another group.
 
 ### Test Plan
 
