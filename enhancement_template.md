@@ -70,7 +70,7 @@ checklist items _must_ be updated for the enhancement to be released.
 -->
 
 - [ ] Enhancement issue in release milestone, which links to pull request in [keylime/enhancements]
-- [ ] Core members have approved the issue with the label `implementable`
+- [ ] Core members have approved the issue with the label `in-progress`
 - [ ] Design details are appropriately documented
 - [ ] Test plan is in place
 - [ ] User-facing documentation has been created in [keylime/keylime-docs]
