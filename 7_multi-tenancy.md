@@ -138,9 +138,13 @@ What is out of scope for this enhancement?  Listing non-goals helps to focus dis
 and make progress.
 -->
 
-Separate data view controls (such as logs) will not be present in the verifier
-with this change. This would require a significant refactor of how the verifier
-operates and therefore requires its own enhancement. 
+Separate data view controls (such as logs) in the verifier. This would require
+a significant refactor of how the verifier operates and therefore
+requires its own enhancement.
+
+Roles will be limited to standard users and admins (root or group based). A means
+to create roles with a more granular level of access (can do X, but not Y) will
+require a new enhancement proposal.
 
 ## Proposal
 
@@ -159,7 +163,7 @@ This proposal will develop and deliver the following features:
 * A federated method for user(s) or administrator(s) to pass credentials (in the
   form of tokens) to the verifier API and prove their identity to Keylime.
 
-* A method to associate an agents to a group or user and a means for
+* A method to associate agents to a group or user and a means for
 administrators to re-associate agents with a different group ("change group").
 
 ### Risks and Mitigation's
@@ -194,19 +198,20 @@ available within the verifier and provide role based access control.
 Alongside users, will be the introductions of "groups". "users" will belong to
 "groups" and will only be able to operate within the context of the group(s) to
 which they belong. Agents (`agent_id`) will also belong to groups. This will
-then restrict view rights of an agent, to group in which the agent is registered.
+then restrict the sending of command to an agent to the group in which the
+agent is currently associated with.
 
-A root admin will be created within the system at deploy time and will be
-unremovable. Creation of new groups will only be possible using the root admin
-account. When a new group is created, an admin role for that group will be
+A root admin will be created within the verifier database at deploy time and
+will be unremovable. Creation of new groups will only be possible using the root
+admin account. When a new group is created, an admin role for that group will be
 automatically created.
 
-Any user of Keylime, will first need to call an Auth Handler to first authenticate
+Any user of Keylime, will first need to call an Auth Handler to authenticate
 their user account. Should this authentication pass, the user will be provided
 with a JWT token. This token will then be added to as a Bearer Token to subsequent
-calls to protected handlers allowing them to interact with the verifier.
+HTTP calls to protected handlers.
 
-An example below of a an admin authenticating themselves:
+An example of a an admin authenticating themselves:
 
 ### JWTauth
 
@@ -250,12 +255,12 @@ curl --location --request POST 'https://verifier:8881/user/register?username=pet
 
 There will also be new tables introduced to the verifiers database
 
- `users`: a table store user information
- `groups`: a table to store group information
- `roles`: a table to store role information
+ * `users`: a table store user information
+ * `groups`: a table to store group information
+ * `roles`: a table to store role information
 
 Declarative mappings will be made from `agent_id` in the `verifiermain` table
-to a new `groups` table. This will allow isolation of agent viewing rights to
+to a new `groups` table. This will allow isolation of agent command rights to
 only users within the same group.
 
 Declarative mappings will also be made from `users` to `groups` and `roles`
@@ -285,7 +290,10 @@ Declarative mappings will also be made from `users` to `groups` and `roles`
 |-----------|---------------------------------------------------------------------|
 | role_id   | Integer (primary_key) (declarative mapping to groups & users table) |
 | role_name | String                                                              |
-| group_id  | String (declarative mapping to the groups table)                    |
+| group_id  | String (declarative mapping to the groups and users table)          |
+
+Amendments will be made to the `verifiermain` table create s declarative mapping
+to the groups table of the `verifiermain:agent_id` row.
 
 The `werkzeug` library will be used for secure password salting of database
 stored user passwords.
@@ -295,29 +303,31 @@ stored user passwords.
 JWT handlers will be introduced to provide authorization protect access of the
 `AgentsHandler` tornado handler.
 
+The `AgentsHandler` will be extended to allow a 'change group' call.
+
 Two new handlers will be introduced:
 
 #### UsersHandler
 
 `UsersHandler` - will provide the following HTTP methods:
 
-`GET`: Get a list of users or details of a specific user from the system (requires
+* `GET`: Get a list of users or details of a specific user from the system (requires
   the caller to be the admin of the group in which the user resides. A call for
   a specific user can only be made by the admin or the user themselves.
 
-`POST`: Limited to only root admin or group admin. Allows creation of a specific
+* `POST`: Limited to only root admin or group admin. Allows creation of a specific
     user. The following params should be populated:
-      `username`: Username of the new user
-      `password`: Password of the new user
-      `email`: New users email address
-      `group_id`: The group_id of the users primary group
+    * `username`: Username of the new user
+    * `password`: Password of the new user
+    * `email`: New users email address
+    * `group_id`: The group_id of the users primary group
 
 A `role_id` will be auto generated (incremented from last value).
 
-`PATCH`: Patch will be used to change user passwords or amend the group(s) of an
+* `PATCH`: Patch will be used to change user passwords or amend the group(s) of an
   existing user.
 
- `DELETE`: Limited to only root admin or group admin. Allows deletion of a user.
+* `DELETE`: Limited to only root admin or group admin. Allows deletion of a user.
 
 #### GroupsHandler
 
@@ -326,23 +336,24 @@ A `role_id` will be auto generated (incremented from last value).
 All calls to the `GroupsHandler` require a root admin account, with the exception
 of the `GET` method.
 
-`GET`: Get a list of groups or details of a specific group from the system. Requires
+* `GET`: Get a list of groups or details of a specific group from the system. Requires
   the caller to be the admin of the group in which the user resides or the root admin.
 
-`POST`: Allows creation of a new group. The following params should be populated;
- `group_name`: Username of the new user
- `group_desc`: Password of the new user
+* `POST`: Allows creation of a new group. The following params should be populated;
+    * `group_name`: Username of the new user
+    * `group_desc`: Password of the new user
 
-`PATCH`: Patch will be used to change groups name.
 
-`DELETE`: Allows deletion of a group. This operation will cascade remove all users
+* `PATCH`: Patch will be used to change groups name.
+
+* `DELETE`: Allows deletion of a group. This operation will cascade remove all users
  and agents and admins that exist within the group.
 
 #### AuthHandler
 
 `AuthHandler` - will extract the username and password from a `GET` request to
- an `auth` uri. The `werkzeug.security` module will then be used to perform
- a database lookup using `check_password_hash`
+ an `\auth` uri. The `werkzeug.security` module will then be used to perform
+ a database lookup using `check_password_hash`.
 
 ### Agent registration changes
 
