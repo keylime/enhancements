@@ -197,38 +197,41 @@ available within the verifier and provide role based access control.
 
 Alongside users, will be the introductions of "groups". "users" will belong to
 "groups" and will only be able to operate within the context of the group(s) to
-which they belong. Agents (`agent_id`) will also belong to groups. This will
-then restrict the sending of command to an agent to the group in which the
+which they belong. Agents (`agent_id`) will mapped to groups. This will
+then restrict the sending of command to only agents within the group in which the
 agent is currently associated with.
 
 A root admin will be created within the verifier database at deploy time and
 will be unremovable. Creation of new groups will only be possible using the root
 admin account. When a new group is created, an admin role for that group will be
-automatically created.
+automatically.
 
 Any user of Keylime, will first need to call an Auth Handler to authenticate
 their user account. Should this authentication pass, the user will be provided
 with a JWT token. This token will then be added to as a Bearer Token to subsequent
 HTTP calls to protected handlers.
 
-An example of a an admin authenticating themselves:
-
 ### JWTauth
 
-JSON Web Tokens will be introduced as a means for users to authorise themselves
-and access / interact with the verifiers APIs.
+[JSON Web Tokens](https://jwt.io/) will be introduced as a means for users to
+authorise themselves and access the verifiers APIs.
 
-JWT is proposed as it affords us a means to federate access over multiple
-verifiers.
+JWT is proposed as it provides us with a means to federate authentication
+over multiple verifiers.
 
 To enable JWT, the [PyJWT](https://pyjwt.readthedocs.io/en/latest/) module
 will be imported into Keylimes code and become Keylime dependency.
 
 Users will then be required to authorise themselves and upon successful
-authorization, be provided with a time based scoped JWT token.
+authorization, be provided with a time limited scoped JWT token.
 
 To deliver this feature it will require a `@JWTauth` python decorator which can
 easily be set over each handler that requires authorised access controls.
+
+```
+@jwtauth
+class SomeHandler(BaseHandler):
+```
 
 JWT will be configurable in `keylime.conf` where users of Keylime can set a
 preferred HMAC, for example:
