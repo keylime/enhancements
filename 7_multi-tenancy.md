@@ -111,9 +111,9 @@ Keylime works in the context of a single tenant. Any agents registered within
 Keylime can be managed by anyone with the required bootstrap certificates (mTLS).
 
 An owner of a Keylime deployment may want to provide services to multiple tenants
-and allow them to manage and create their own users , groups and
-administrators while isolating control of agents to only members of a certain
-group(s).
+and allow them to manage and create their own users, groups and
+administrators, while isolating the control commands available for agents to
+members of a certain group(s).
 
 ### Goals
 
@@ -149,21 +149,17 @@ implementation.  The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-This proposal will seek to develop the following features:
+This proposal will develop and deliver the following features:
 
-Implement database amendments to introduce groups, users and roles.
+* Database amendments to introduce groups, users and roles with the verifier.
 
-Implement a method for a user or administrator to provide credentials to prove
-their identity to Keylime.
+* A federated method for user(s) or administrator(s) to pass credentials (in the
+  form of tokens) to the verifier API and prove their identity to Keylime.
 
-Implement authentication in the form of JSON Web Tokens to allow federation
-role based scoping of tokens for use across multiple instances of Keylime.
+* A method to associate an agents to a group or user and a means for
+administrators to re-associate agents with a different group ("change group").
 
-Implement a means of associating an `agent_id` to a `group_id` and a means for
-administrators to re-associate the `agent_id` with a different `group_id`
-("change group").
-
-### Risks and Mitigations
+### Risks and Mitigation's
 
 <!--
 What are the risks of this proposal and how do we mitigate.  Think broadly.
@@ -188,9 +184,9 @@ required) or even code snippets.  If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss them.
 -->
 
-Central to the design, will be the introduction of "users" to the system. Users
-are accounts which are available for machines / humans to interact with the
-RestFUL API's available within the verifier.
+Central to the design, will be the introduction of "users". Users are accounts
+which will be used for machines / humans to interact with the RestFUL API's
+available within the verifier and provide role based access control.
 
 Alongside users, will be the introductions of "groups". "users" will belong to
 "groups" and will only be able to operate within the context of the group(s) to
