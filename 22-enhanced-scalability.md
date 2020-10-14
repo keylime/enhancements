@@ -105,6 +105,18 @@ HA/Scalable deployment
 registrars, verifiers and backing store nodes. This will not only provide
 a detailed demonstration of how all the pieces fit together, but also
 provide a nice development environment for improving things going forward.
+* Currently the verifier maintains a list of agents it needs
+to periodically get quotes from. The verifier maintaining this
+state internally means that adding new verifiers, or new agents in
+a multi-verifier setup requires a rebalancing of that internal state
+which is difficult. Instead, the state of which verifiers are active
+should be in the external database and we need a scalable way of having
+multiple verifiers either select, or be pointed towards the next agent
+which needs a quote. If possible, it would be ideal to implement this
+without needing another daemon and by using the database tables as a
+queue. But if that proves to not be possible, we can implement this as
+a separate daemon which loops through the known agents and prods the
+verifier pool to check on each one.
 
 ### User Stories (optional)
 
