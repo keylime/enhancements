@@ -108,7 +108,7 @@ this enhancement.  Describe why the change is important and the benefits to user
 
 Its acceptable that someone may want to manually restart a server (or the server
 restarts as part of an automated work flow) while retaining the configuration
-set up during the intial "adding" of the agent to the verifier (`whitelist`,
+set up during the intial "adding" of the agent to the verifier (`allowlist`,
 `tpm_policy`). They should not have to again add (or update) the verifier
 every time if there is not change in configuration or trust mapping (e.g software
 CA).
