@@ -39,7 +39,7 @@ extensions in the future.
 
 ## Motivation
 
-Keylime currently places the burden of creating and managing whitelists
+Keylime currently places the burden of creating and managing allowlists
 upon the user.  Currently the way to generate these allow-lists is to
 air-gap the machine after it’s been installed and configured and then
 run a script which crawls the filesystem and records SHA256 hashes into
@@ -85,7 +85,7 @@ These are the proposed changes:
     An HTTP URL that points to the remote JSON data file. This URL must
     be secure (HTTPS), and non-redirecting (no 30X HTTP codes) to reduce
     the chance of any MITM attacks. If this option is specified then
-    you can't also have the `--whitelist` option present.
+    you can't also have the `--allowlist` option present.
 
   * `allowlist-sig-url`
     An HTTP URL that points to the cryptographic signature of the JSON
@@ -142,7 +142,7 @@ to keylime to verify it pulled the expected lists.
 * We will be updating the internal API between the tenant and the
 verifier to use the new JSON spec. Care will be taken to make sure
 this is done in a backwards compatible way so existing instances of
-keylime can continue to use their existing whitelists. If backwards
+keylime can continue to use their existing allowlists. If backwards
 compatibility can't be maintained good documentation and a utility in
 `scripts/` will be created to help users migrate to the new format.
 
@@ -214,7 +214,7 @@ Instead of baking the URL retrieval and Hash verification into
 `keylime_tenant` itself, we could create an additional utility that
 would perform those actions and then translate the JSON allow-lists
 into the current format. Then `keylime_tenant` could be called on the
-new resulting whitelist.
+new resulting allowlist.
 
 I believe this is a less desireable approach because it means we have yet
 another script that users would have to run in order to get the desired
