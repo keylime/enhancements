@@ -79,6 +79,7 @@ This will be the starting point for many future integrations with keylime, but f
 These are the proposed changes:
 
 * Document the first version of the allow-list JSON spec
+* Update the `allowlist` option to handle the new documented JSON spec
 * Add the following arguments to `keylime_tenant`
 
   * `allowlist-url`
@@ -87,23 +88,24 @@ These are the proposed changes:
     the chance of any MITM attacks. If this option is specified then
     you can't also have the `--allowlist` option present.
 
-  * `allowlist-sig-url`
-    An HTTP URL that points to the cryptographic signature of the JSON
-    data file. Again, This URL must be secure (HTTPS), and non-redirecting
-    (no 30X HTTP codes) to reduce the chance of any MITM attacks. This
-    option cannot be specified if `allowlist-url` isn't also present. And
-    you must include either this option or `allowlist-sig` or `allowlist-checksum`
+    If this option is present, then you must use one of `allowlist-sig`,
+    `allowlist-sig-url` or `allowlist-checksum` to verify the contents
+    of the downloaded file.
 
   * `allowlist-sig`
     The cryptographic signature of the remote JSON data file.
-    Cannot be specified if `allowlist-url` isn't also present. And
-    you must include either this option or `allowlist-sig-url` or
-    `allowlist-checksum`. This gives more flexibility to the user if the
-    `allowlist-sig-url` doesn't quite fit their workflow.
+    Cannot be specified if `allowlist` isn't also present.
 
-  * `allowlist-key`
-    The key used to verify the `allowlist-sig`. Is required if
-    `allowlist-sig` or `allowlist-sig-url` is used.
+  * `allowlist-sig-url`
+    An HTTP URL that points to the GPG signature of the JSON
+    data file. Again, This URL must be secure (HTTPS), and non-redirecting
+    (no 30X HTTP codes) to reduce the chance of any MITM attacks. This
+    option cannot be specified if `allowlist` or `allowlist-url` isn't also
+    present.
+
+  * `allowlist-sig-key`
+    The key used to verify the `allowlist-sig` or `allowlist-sig-url`
+    and is required if one of those options is also present.
 
   * `allowlist-checksum`
     The SHA256 checksum of the allow-list. This can be used to verify
@@ -157,17 +159,17 @@ signatures and checksums
 
 Propsed JSON spec:
 
-```json
+```javascript
 {
     "meta": {
-        "version":  "",    # Hash format version to allow for future changes if needed
-        "generator": "",   # What generated the hash payload
-        "timestamp": ""  # When the hash payload was generated
+        "version":  "",    // Hash format version to allow for future changes if needed (required)
+        "generator": "",   // What generated the hash payload
+        "timestamp": ""    // When the hash payload was generated
     },
-    "release": "",        # Release Identifier. Specifics here may be different for different compound components
-    "hashes": {
+    "release": "",         // Release Identifier. Specifics here may be different for different compound components
+    "hashes": {            // List of hashes to validate (required)
         "/filesystem/path": [
-            {"sha256": "HASH"},  # an object so other hashes could go side by side if needed
+            {"sha256": "HASH"},  // An object so other hashes could go side by side if needed
             {"sha128": "HASH"}
         ]
     }
