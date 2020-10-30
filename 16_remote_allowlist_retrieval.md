@@ -168,10 +168,8 @@ Propsed JSON spec:
     },
     "release": "",         // Release Identifier. Specifics here may be different for different compound components
     "hashes": {            // List of hashes to validate (required)
-        "/filesystem/path": [
-            {"sha256": "HASH"},  // An object so other hashes could go side by side if needed
-            {"sha128": "HASH"}
-        ]
+        "/filesystem/path":  [ "HASH1", "HASH2" ],
+        "/filesystem/path2": [ "HASH3", "HASH4" ],
     }
 }
 ```
