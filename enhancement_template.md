@@ -191,6 +191,25 @@ this is in the test plan.
 Consider the following in developing an upgrade/downgrade strategy for this enhancement
 -->
 
+### Dependencie requirements
+
+<!--
+If your new change requires new dependencies, please outline and demonstrate that your selected dependency 
+is well maintained and packaged in Keylime's supported Operating Systems (currently Debian Stable
+and as of time writing Fedora 32/33). 
+
+During code implementation you will also be expected to add the package to CI , the keylime ansible role and 
+keylimes main installer (`keylime/installers.sh`).
+
+If the package is not available in the supported Operated systems, the PR will not be merged into master. 
+
+Adding the package in `requirements.txt` is not sufficent for master which is where we tag releases from. 
+
+You may however be able to work within an experimental branch until a package is made available. If this is
+the case, please outline it in this enhancement.
+
+-->
+
 ## Drawbacks
 
 <!--
