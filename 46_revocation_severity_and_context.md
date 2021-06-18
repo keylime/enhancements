@@ -170,17 +170,17 @@ irrecoverable failure is triggered before.
 
 ## Design Details
 We keep the current model of the states, but modify the behavior of the failure
-states. If we are in a failure state that is not irrecoverable the polling of
+states. If we are in a failure state that is recoverable the polling of
 the agent is stopped otherwise the agent is still added back for normal polling.
 
-A failure object is introduced. Which holds the all the revocation events that
-are being produced by the checks and if this any of the failures makes the agent
-not recoverable. Irrecoverable events currently are retry timeouts and quote
-validation.
+A new failure object will be introduced which holds the all the revocation
+events that are being produced by the checks and if any of the failures makes
+the agent not recoverable. Irrecoverable events currently are retry timeouts and
+quote validation.
 
-All parts of the validation process which is mainly (`check_qoute` and
+All parts of the validation process which such as (`check_qoute` and
 `check_pcrs`) will append all events to that object instead of returning false.
-If the validation process advance without a step that failed the failure object
+If the validation process advances without a step that failed the failure object
 must be marked as irrecoverable and only then the function can return without
 validating further. The state of the agent after that should be
 `QUOTE_FAILED_IRRECOVERABLE`.
@@ -189,14 +189,14 @@ The highest severity is 0 and the higher the number the number the lower the
 severity. This makes it easy to add less sever levels without the need to
 increase the level of the highest severity.
 
-A new table `revocation_events` is introduced to save the already send
+A new table `revocation_events` is introduced to save the already sent
 notifications. It contains the columns:
   * `agent_id`: The id of agent where the event was created.
   * `event_id`: The event ID string
   * `severity_level`: The severity of the event.
   * `context`: String or JSON object that contains more information about that event.
 
-In the `process_agent` function gets a new argument that can contain a failure
+The `process_agent` function gets a new argument that can contain a failure
 object. If the status is `QUOTE_FAILED` the events from failure object are
 checked against the database and if there are occurring the first time a message
 is send and they are added to the database. Otherwise the event is ignored.
@@ -211,7 +211,7 @@ To the send revocation message two new field are added: `severity_level` and
 but that would introduce more complexity of parsing the messages for the
 recipient.)
 
-If a agent gets removed from the verifier also all entries in
+If a agent gets removed from the verifier then all entries in
 `revocation_events` for the agent will be removed. (An option to clear the old
 events from a agent could be introduced, but a reset can already implemented by
 removing and then adding the agent to the verifier)
