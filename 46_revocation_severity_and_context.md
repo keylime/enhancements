@@ -256,8 +256,12 @@ parsing and matching side, but allows for flexible rules. Rules are parsed in a
 top down order and the first matching rule is used and are supplied as a JSON
 Array string to the verifier API (or the tenant).
 
-Rules are added to the agent similar on how it is done currently for `mb_refstate`.
-A new attribute `revocation_rules` is added to the agent to hold that information.
+Rules are added to the agent similar on how it is done currently for
+`mb_refstate`. A new attribute `revocation_rules` is added to the agent data in
+the verifier to hold that information. The rules can be specified on a per agent
+basis when the agent is added to the verifier. 
+
+The tenant is extended to support that functionality. 
 
 ### Test Plan
 
