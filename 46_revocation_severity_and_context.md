@@ -185,9 +185,10 @@ must be marked as irrecoverable and only then the function can return without
 validating further. The state of the agent after that should be
 `QUOTE_FAILED_IRRECOVERABLE`.
 
-The highest severity is 0 and the higher the number the number the lower the
-severity. This makes it easy to add less sever levels without the need to
-increase the level of the highest severity.
+The severity level is described by a label. By default following labels are
+available: crit, err, warning, notice, info and debug. They are strictly ordered
+from hightest to lowest severity. The labels are configurable in the
+`keylime.conf`to allow finer granularity if necessary.
 
 A new table `revocation_events` is introduced to save the already sent
 notifications. It contains the columns:
@@ -234,9 +235,6 @@ and `event` can be generated automatically.
 The motivation behind that schema is to allow Keylime to adjust granularity of
 the events where needed and give the user an easy way to specify a severity
 level to one whole subset of Keylime.
-
-The severity level of an event is either 0 or if it matches one of the user
-rules the according to the configuration.
 
 Events can a specified context. Those can be either a static string or an JSON
 object that contains more information event. This is optional and it is assumed
