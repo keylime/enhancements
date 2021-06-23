@@ -80,9 +80,8 @@ checklist items _must_ be updated for the enhancement to be released.
 -->
 
 ## Summary
-This enhancement proposal adds the capability differentiate and classify
-revocation events by adding severity levels and user defined or generated
-context.
+This enhancement proposal adds tagging of revocation events and the capability
+differentiate and classify revocation events by adding severity levels.
 
 ## Motivation
 Currently Keylime operates in a binary state. Either a device verified or not.
@@ -101,124 +100,108 @@ actually compromised.
 
 ### Goals
  * Allow the user to specify a severity level and context information for every
-   revocation event that is issued by Keylime.
-  * Tag all parts that cause revocations in Keylime with an unique id.
-  * Assign context provided by the user to (static) revocation events.
-  * Provide the option for Keylime to add context itself to revocation events.
+   part in Keylime that causes a potential revocation.
+   * Tagging all parts that cause revocations in Keylime with an unique id.
+   * Provide the option for Keylime to add context to revocation events.
     This is useful if for example Eventlog parsing gains support for dynamic
     policies.
-  * Extend the verifier API and tenant to add those rules to Keylime.
- * Provide API entry point for checking which revocations events were triggered
-   for a agent.
-
+   * Extend the verifier API and tenant to add those rules to Keylime.
+ * Providing all the necessary information about an event for future revocation
+   mechanisms.
 ### Non-Goals
  * The classification of revocation events is highly environment and
    configuration specific. It is not a goal to provide a default configuration
    other than all events are classified with the highest severity.
+ * Changing the Keylime databases to keep which events were already sent. This
+   would break the assumption that the databases are "non historical".
+ * Implementing a new way for adding revocation mechanisms.
 
 
 ## Proposal
-Currently revocation events are either send if something with the communication
-the the agent went wrong, the quote is not valid or one of the PCR based checks
-fail.
+This proposal consists of two parts. Part A can be implemented without part B.
 
-This proposal changes that behavior and introduces the concept of severity
-levels of events and adds the option to provide more context for events.
+### Part A - Tagging of all parts of Keylime that can cause a revocation
+In the current model every check that fails causes that the agent is not
+verified anymore and no further information what exactly failed is recorded.
+Checks that are still outstanding are not executed after the first failure
+occurs.
 
-All parts that cause revocation events are tagged with an unique id and against
-those ids user scan specify a severity level and provide some context information.
+Part A changes that by tagging each component in Keylime that might cause a
+revocation event and trying to evaluate all checks instead of aborting if one
+check failed.
+
+### Part B - Extending the revocation events to support severity levels
+This part uses the gained capabilities from part A and adds severity level
+functionality to the current revocation mechanism.
+
+Currently revocation messages are either send if something with the
+communication to the agent went wrong, the quote is not valid or one of the PCR
+based checks fail. This part changes that behavior by introducing the concept of
+severity levels. Now messages are send if a event if a higher than the currently
+recorded severity level occurs.
 
 Instead of stop polling an agent if a failure occurred the agent is added back
 for checking if the failure is recoverable. If it is not a revocation event with
 the highest severity is generated.
 
-All the send events are visible in the verifier API for other systems to use.
+The user can specify for an event a severity level on a agent by agent basis.
 
-Keylime also gains the ability to specify context for a revocation event.
 
 ### User Stories (optional)
-
-<!--
-Detail the things that people will be able to do if this enhancement is implemented.
-Include as much detail as possible so that people can understand the "how" of
-the system.  The goal here is to make this feel real for users without getting
-bogged down.
--->
+User stories belong to part B of this proposal. Part A only provides internal
+design changes for future enhancements.
 
 #### Story 1
+* User specifies that all `ima` events have a severity level of `warning` and
+  all a failure of `pcr_validation` has a severity level of `err`.
+* Agent B removes Agents from a system if any revocation message with the
+  severity level `err` is generated.
+* Agent A has a file that fails the ima check and the failure object contains an
+  event with the event id `ima.ng-sig.hashfailed`.
+* Failure object is evaluated and the highest severity level is `warning`.
+* Agent A hadn't had a failure before so a revocation message is sent with the
+  severity level `warning` and for agent A the `severity_level` is set to
+  `warning`.
+* Agent B ignores the revocation message based on the level.
 
 #### Story 2
+* Setup is the same as the end of Story 1.
+* Agent A has still a file that fails the ima check and the failure object
+  contains an event with the event id `ima.ng-sig.hashfailed`.
+* Failure object is evaluated and the highest severity level is `warning`.
+* The `severity_level` of agent A is `warning`so no revocation message gets send.
 
-### Notes/Constraints/Caveats (optional)
+#### Story 3
+* Setup is the same as the end of Story 1.
+* Agents A pcr10 has a now a wrong value and the failure object contains now an
+  event with an event with the event id `ima.ng-sig.hashfailed` and also one
+  with `pcr_validation.pcr1`.
+* Failure object is evaluated and the highest severity level is `err`.
+* `err` is a higher severity level than `warning` and revocation message with
+  the severity level of `err` is sent and for agent A the `severity_level` is
+  set to `err`.
+* Agent B removes agent A from a system.
 
-<!--
-What are the caveats to the proposal?
-What are some important details that didn't come across above.
-Go in to as much detail as necessary here.
-This might be a good place to talk about core concepts and how they relate.
--->
+### Notes/Constraints/Caveats
+Part B of this proposal is limited by the database design of Keylime. More
+flexible solutions can be implemented outside of Keylime when an API for
+external revocation mechanisms gets implemented.
 
 ### Risks and Mitigations
 The option to classify the revocation events opens the possibility that events
 are not handled. To mitigate this all revocation events that are not explicitly
 from the user classified are assigned the highest severity level.
 
-The same concept applies for revocation events that are caused failures that
+The same concept applies for revocation events that are caused by failures that
 make the agent irrecoverable. Those also always need to be treated with the
-highest severity by default because otherwise some events wont be caught is a
+highest severity by default because otherwise some events won't be caught if a
 irrecoverable failure is triggered before.
 
 ## Design Details
-We keep the current model of the states, but modify the behavior of the failure
-states. If we are in a failure state that is recoverable the polling of
-the agent is stopped otherwise the agent is still added back for normal polling.
 
-A new failure object will be introduced which holds the all the revocation
-events that are being produced by the checks and if any of the failures makes
-the agent not recoverable. Irrecoverable events currently are retry timeouts and
-quote validation.
-
-All parts of the validation process which such as (`check_qoute` and
-`check_pcrs`) will append all events to that object instead of returning false.
-If the validation process advances without a step that failed the failure object
-must be marked as irrecoverable and only then the function can return without
-validating further. The state of the agent after that should be
-`QUOTE_FAILED_IRRECOVERABLE`.
-
-The severity level is described by a label. By default following labels are
-available: crit, err, warning, notice, info and debug. They are strictly ordered
-from hightest to lowest severity. The labels are configurable in the
-`keylime.conf`to allow finer granularity if necessary.
-
-A new table `revocation_events` is introduced to save the already sent
-notifications. It contains the columns:
-  * `agent_id`: The id of agent where the event was created.
-  * `event_id`: The event ID string
-  * `severity_level`: The severity of the event.
-  * `context`: String or JSON object that contains more information about that event.
-
-The `process_agent` function gets a new argument that can contain a failure
-object. If the status is `QUOTE_FAILED` the events from failure object are
-checked against the database and if there are occurring the first time a message
-is send and they are added to the database. Otherwise the event is ignored.
-
-In the verifier API for the agent a new field is exposed that contains the list
-of the revocation events, with their respected level and context.
-
-To the send revocation message two new field are added: `severity_level` and
-`context`. Such that the other agents can act accordingly.
-
-(To reduce bandwidth all the generated messages could also be bundled into one,
-but that would introduce more complexity of parsing the messages for the
-recipient.)
-
-If a agent gets removed from the verifier then all entries in
-`revocation_events` for the agent will be removed. (An option to clear the old
-events from a agent could be introduced, but a reset can already implemented by
-removing and then adding the agent to the verifier)
-
-### Events
-Events are tagged with an event id. Which has the following schema
+### Part A
+#### Event tagging
+Events are tagged with an event id. Which has the following schema:
 `component.[sub_component].event`.
 
 * `component`: Name of the part of Keylime where the event was generated.
@@ -236,17 +219,40 @@ The motivation behind that schema is to allow Keylime to adjust granularity of
 the events where needed and give the user an easy way to specify a severity
 level to one whole subset of Keylime.
 
-Events can a specified context. Those can be either a static string or an JSON
-object that contains more information event. This is optional and it is assumed
-that two events from the same agent with the same event id have the same
-severity and are the same event.
+Events can have a specified context. Those can be either a static string or an
+JSON object that contains more information about that event. This is optional
+and it is gernerally assumed that two events from the same agent with the same
+event id have the same severity and are the same event.
 
-### User rules
-The user can specify severity and context for event ids. 
+### Collecting events
+Instead of returning early if one check in a component fails a new failure
+object will be introduced to collect the events. All parts of the validation
+process such as (`check_qoute` and `check_pcrs`) will append their generated
+events to that object instead of returning false. 
+
+If the validation process cannot advance without a step that failed the failure
+object must be marked as irrecoverable and only then a function can return
+without validating any further. This will be the case if e.g. quote validation
+failed.
+
+Recoverable in this context means that the validation can continue without that
+check needing to succeed, not that if the check succeeds in the future
+again the agent can get back into a verified state.
+
+Without the implementation of part B a revocation event will be sent if any
+check failed and the polling of the agent will be stopped.
+
+### Part B
+#### Severity levels and user rules
+The severity level is described by a label. By default following labels are
+available: crit, err, warning, notice, info and debug. They are strictly ordered
+from hightest to lowest severity. The labels are configurable in the
+`keylime.conf` to allow finer granularity if necessary.
+
+The user can specify severity level for event ids. 
 One rule contains the following attributes:
  * `event_id`: The event id to match or a regex rule for it.
  * `severity_level`: The severity level that the matched events have.
- * `context`: static string for the context of that event.
 
 To make the rules future proof with dynamic policies it is possible to specify a
 regular expression for that matching. This introduces more complexity on the
@@ -260,6 +266,31 @@ the verifier to hold that information. The rules can be specified on a per agent
 basis when the agent is added to the verifier. 
 
 The tenant is extended to support that functionality. 
+
+#### Changes to the state machine and revocation events
+We keep the current model of the states, but modify the behavior of the failure
+states. If we are in a failure state that is recoverable the polling of
+the agent is stopped otherwise the agent is still added back for normal polling.
+
+If the failure object is marked as irrecoverable the state of the agent after
+that should be `QUOTE_FAILED_IRRECOVERABLE`, a revocation event with the highest
+severity level gets generated and the agent gets removed from polling.
+
+To the agent table in the verifier a new column called `severity_level` is added. 
+It contains the highest severity level that a generated event had.
+
+To the revocation message a new field called `severity_level` is added which
+contains the highest severity level that was generated by an event that caused
+the message to be sent.
+
+The `process_agent` function gets a new argument that can contain a failure
+object. If the status is `QUOTE_FAILED` the events from failure object are
+evaluated against the user specified rules and if the highest severity level is
+higher than the saved in `severity_level` a revocation message is sent and
+`severity_level` is updated to the new highest severity level.
+
+This checking against `severity_level` is done to prevent spamming the agents
+with messages that don't contain new information.
 
 ### Test Plan
 
@@ -279,9 +310,8 @@ expectations).
 -->
 
 ### Upgrade / Downgrade Strategy
-A new table `revocation_events` needs to be created to store the already send
-revocation events. Otherwise by default Keylime will still operate in the old
-binary state.
+A new column `severity_level` to the table `verifiermain` gets added.
+Otherwise by default Keylime will still operate in the old binary state.
 
 New fields in the API are introduced so an API version update is needed to
 indicate that change.
@@ -291,9 +321,10 @@ No additional dependencies should be required.
 
 ## Drawbacks
  * This will add additional complexity for features that cause revocation events.
- * It creates more data for Keylime to manage.
+ * Part B changes the current binary state of the agents verification status.
 
 ## Alternatives
+ * Only implement the tagging (part A) and completely redesign the revocation mechanism.
 
 ## Infrastructure Needed (optional)
 
