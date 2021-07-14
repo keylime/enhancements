@@ -158,12 +158,12 @@ IMA log entry. The verifier needs to be extended to request the
 IMA log starting at a specific entry in the IMA log. There are no changes
 required to the TPM quote.
 
-This proposal assumes that affinity of an agent with a verifier is
+<!-- This proposal assumes that affinity of an agent with a verifier is
 maintained throughout the attestation. This allows a specific verifier
 to maintain the state of an agent in memory (IMA PCR and next-to-request
 IMA log entry). The Keylime verifier protocol seems to support this
 assumption since a verifier initiates the protocol for attestation by
-talking to an agent.
+talking to an agent. -->
 
 To maintain backwards compatibility with older verifiers, the updated
 agent will return the entire IMA log when the verifier's request does
@@ -178,32 +178,23 @@ entry it returned, thus the verifier will assume the log starts at
 the first entry.
 
 From the above it can be seen that the benefits of reduction of network
-bandwidth consumption and CPU cycle consumption are only going to take
-effect when updated verifiers and updated agents are being used.
+bandwidth and CPU cycle consumption are only going to take effect when
+updated verifiers and updated agents are being used.
 
-Upon restart of the verifier, it will request the IMA log from the
-first entry (entire log) when resuming communication with a particular
-agent. Therefore, startup of the IMA verification will be as costly
-(in terms of resource consumption) as it was before this enhancement.
+While no attestation state is persisted: Upon restart of the verifier,
+it will request the IMA log from the first entry (entire log) when resuming
+communication with a particular agent. Therefore, startup of the IMA
+verification will be as costly (in terms of resource consumption) as it was
+before this enhancement.
 
-The per-agent state of the PCRs and the next-to-request IMA log entry
-will be maintained in the verifier's memory and be internally accessible
-using the unique ID of an agent (indexed by agent Id) as a
-search/selection criterion.
-
-The rational for maintaining the state in the verifier's memory rather than
-writing it out into the DB is driven by the following:
-
-- When the Keylime verifier is stopped and restarted it is not clear how to
-  proceed with each of the monitored systems, since each one of them may
-  have been rebooted in the meantime. The safest way to proceed after restart
-  of the verifier is to start over with IMA attestation from the beginning.
-
-- Assuming persistence of the data in the DB: If the Keylime verfier was to
-  resume attestation at the point where it had left off before the restart
-  it would need some sort of fault tolerance for those systems that have
-  been restarted in the meantime and failed the attestation. Addition of
-  fault tolerance for those kind of cases is beyond the scope of the proposal.
+Once the number of the next-to-request IMA log entry and the state of the
+IMA PCR(s) along with the last-known boottime of the agent have been persisted,
+the verifier can try to resume the attestation from where it left off.
+It will request the measurement list to be sent from the next-to-request IMA
+log entry number and the agent will respond with an IMA measurement list
+along with its boottime. If the boottime is found to be different than the last
+known boot time then the current attestation will be skipped and the next time
+a full attestation starting at entry 0 will be requested.
 
 ### User Stories (optional)
 
@@ -258,6 +249,11 @@ proposal will be implemented, this is the place to discuss them.
 
 Many of the details are already given above.
 
+The verifier database table will need to be extend with entries for:
+- last known boottime of agent system
+- state of the IMA PCR(s)
+- the next-to-request entry number for the IMA log
+
 ### Test Plan
 
 <!--
@@ -288,10 +284,10 @@ this is in the test plan.
 Consider the following in developing an upgrade/downgrade strategy for this enhancement
 -->
 
-Since the database schema remains unaffected, no downgrade strategy for the
-database needs to be implemented.
+The database migration scripts will be able to handle the upgrade and downgrade
+ot the verfier database table.
 
-Compatibility between old verifiers and new agents new verfiers and old agents is
+Compatibility between old verifiers and new agents and new verfiers and old agents is
 maintained.
 
 ### Dependency requirements
@@ -313,7 +309,8 @@ the case, please outline it in this enhancement.
 
 -->
 
-No addtional dependencies, such as python packages, are required for this extension.
+The be abel to get the boottime of a system we need the psutil package.
+We require psutil >=5.4.2 since Ubuntu Bionic provides this version and RHEL 8 provides 5.4.3.
 
 ## Drawbacks
 
@@ -341,4 +338,3 @@ new subproject, repos requested, github webhook, changes to CI (travis).
 -->
 
 No additional infrastructure is needed.
-
