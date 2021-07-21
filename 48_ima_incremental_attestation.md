@@ -158,13 +158,6 @@ IMA log entry. The verifier needs to be extended to request the
 IMA log starting at a specific entry in the IMA log. There are no changes
 required to the TPM quote.
 
-<!-- This proposal assumes that affinity of an agent with a verifier is
-maintained throughout the attestation. This allows a specific verifier
-to maintain the state of an agent in memory (IMA PCR and next-to-request
-IMA log entry). The Keylime verifier protocol seems to support this
-assumption since a verifier initiates the protocol for attestation by
-talking to an agent. -->
-
 To maintain backwards compatibility with older verifiers, the updated
 agent will return the entire IMA log when the verifier's request does
 not contain the number of the next IMA entry to return, which indicates
@@ -225,6 +218,14 @@ What are some important details that didn't come across above.
 Go in to as much detail as necessary here.
 This might be a good place to talk about core concepts and how they relate.
 -->
+
+Since only a pull model is currently implemented in Keylime (verifier
+initiates the quote request) we do not need to deal with the case where
+affinity of an agent is not maintained during attestation. If this was to
+change, then the Keylime verifier will have to read the last state of the
+attestation every time before it runs the log verification. Since this it
+not necessary today, the implementation will not read the last state every
+time.
 
 ### Risks and Mitigations
 
