@@ -141,7 +141,8 @@ nitty-gritty.
 -->
 
 The actions defined in the configuration file (or tenant-provided
-action list) can be any type of script/executable.
+action list) can be any type of script/executable. The actions names are no
+longer required to begin with `local_action_`.
 
 When Keylime agent receives a revocation message, it stores the JSON
 payload in a file and invokes revocation actions with the file as a
@@ -210,7 +211,8 @@ proposal will be implemented, this is the place to discuss them.
 
 The actions defined with the `revocations_actions` configuration
 option (or in the `unzipped/action_list` file provided by the tenant)
-can be of the command names of scripts/executables.
+can be of the command names of scripts/executables. The names are no longer
+required to begin with `local_action_`.
 
 There are two possibilities where the actual action can be found:
 pre-installed on the system or sent by the tenant as part of the
