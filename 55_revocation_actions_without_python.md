@@ -21,7 +21,7 @@ To get started with this template:
   start with the high-level sections and fill out details incrementally in
   subsequent PRs.
 -->
-# Persist verifier monitoring after agent restarts
+# enhancement-55: Revocation Actions without Python Runtime
 
 <!--
 This is the title of your enhancement.  Keep it short, simple, and descriptive.  A good
@@ -93,11 +93,8 @@ useful for a wide audience.
 A good summary is probably at least a paragraph in length.
 -->
 
-Should someone restart an agent based server or force an agent offline, the
-agent will no longer be monitored by the verifier. Upon starting the agent will
-just register with the registrar and IMA monitoring will cease.
-
-This behavior was originally discussed on the [keylime mailing list](https://keylime.groups.io/g/main/topic/q_is_an_agent_s_policy/72856684?p=,,,20,0,0,0::recentpostdate%2Fsticky,,,20,2,0,72856684)
+This enhancement proposal allows revocation actions to be any
+executable or script, not only a Python module.
 
 ## Motivation
 
@@ -106,12 +103,14 @@ This section is for explicitly listing the motivation, goals and non-goals of
 this enhancement.  Describe why the change is important and the benefits to users.
 -->
 
-Its acceptable that someone may want to manually restart a server (or the server
-restarts as part of an automated work flow) while retaining the configuration
-set up during the intial "adding" of the agent to the verifier (`allowlist`,
-`tpm_policy`). They should not have to again add (or update) the verifier
-every time if there is not change in configuration or trust mapping (e.g software
-CA).
+Currently Keylime requires that agent-local actions executed at
+revocation notification to be written in Python with a specific
+convention: an async `execute` function is globally defined and it
+takes a revocation message as the argument.
+
+With the upcoming addtion of the new Rust-based keylime agent there
+will need to be a means to execute actions without Python runtime
+installation.
 
 ### Goals
 
@@ -120,9 +119,7 @@ List the specific goals of the enhancement.  What is it trying to achieve?  How 
 know that this has succeeded?
 -->
 
-A user restarts the agent on a target node. When the agent is becomes active
-again the verifier proceeds to recommence monitoring the delegated measurements
-from when the target agent was first added to the verifier and registrar.
+ * Arbitrary scripts/executable can be used as a revocation action
 
 ### Non-Goals
 
@@ -131,8 +128,7 @@ What is out of scope for this enhancement?  Listing non-goals helps to focus dis
 and make progress.
 -->
 
-Any sort of migration or fault redundancy (although both areas benefit from this
-change)
+ * Secure execution of revocation actions (while it is desired), such as using sandbox and seccomp
 
 ## Proposal
 
@@ -144,19 +140,13 @@ implementation.  The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-A target machine is rebooted with no change in state (measured properties). This
-machine should not require “re adding” with the keylime tenant again.
+The actions defined in the configuration file (or tenant-provided
+action list) can be any type of script/executable. The actions names are no
+longer required to begin with `local_action_`.
 
-Once the target node / agent returns to an online / reachable state, the
-verifier should proceed to recommence run time monitoring.
-
-A new tornado web handler will be created within the verifier to listen for
-requests that an agent will emit when it (re)starts.
-
-Code will be introduced within the agent that will perform a `POST` request to
-inform the verifier an agent has been (re)started. This in turn will cause the
-verifier to perform an `operational_state query` for the `UUID` of that agent
-and then proceed to perform run time integrity monitoring again.
+When Keylime agent receives a revocation message, it stores the JSON
+payload in a file and invokes revocation actions with the file as a
+command-line argument.
 
 ### User Stories (optional)
 
@@ -167,17 +157,30 @@ the system.  The goal here is to make this feel real for users without getting
 bogged down.
 -->
 
-For any given reason my server reboots. Keylime handles this event and provides
-trust monitoring once the server and agent are back online and can be reached
-by the verifier.
+#### Story 1
 
-Should the machines state have been tampered with during the offline period,
-Keylime will immediate fail the target node accordingly (or likewise show the
-machine is still in the expected trust state according to the delegated
-measurements)
+* The agent is configured with revocation notification enabled
+* The agent is also configured with non-Python actions (pre-installed on the system) set up in the `revocations_actions` configuration option
+* The verifier notifies a revocation
+* The agent will invoke the actions with the revocation message stored in a file
+* If any Python actions are installed alongside non-Python actions, the agent will search and invoke them in the same [convention][secure payload] as used before, after non-Python actions are invoked
 
-If I want to change measurements, I use the existing `update` command available
-in the Keylime Tenant CLI.
+#### Story 2
+
+* The agent is configured with revocation notification enabled
+* The tenant sends non-Python actions as part of the initial payload, as well as the `action_list` file listing those actions
+* The verifier notifies a revocation
+* The agent will invoke the actions with the revocation message stored in a file
+* If any Python actions are installed alongside non-Python actions, the agent will search and invoke them in the same [convention][secure payload] as used before, after non-Python actions are invoked
+
+### Notes/Constraints/Caveats (optional)
+
+<!--
+What are the caveats to the proposal?
+What are some important details that didn't come across above.
+Go in to as much detail as necessary here.
+This might be a good place to talk about core concepts and how they relate.
+-->
 
 ### Risks and Mitigations
 
@@ -189,8 +192,13 @@ enhancement ecosystem.
 How will security be reviewed and by whom?
 -->
 
-We should be sure we do not introduce security risks and be mindful of future
-enhancements such as multi tenancy, auth and migration.
+This mechanism makes it a little easier for the attacker to execute
+commands on the system, though the same thing is already possible by
+injecting custom Python actions.  To keep the risk minimal, this
+proposal suggest mandating that the pre-installed actions are
+installed in a fixed/immutable directory, such as `/usr` on modern
+Linux distributions rather than `/var/lib` or similar. That way the
+action commands will also be subject to attestation.
 
 ## Design Details
 
@@ -201,53 +209,43 @@ required) or even code snippets.  If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss them.
 -->
 
-Verifier Changes
-----------------
+The actions defined with the `revocations_actions` configuration
+option (or in the `unzipped/action_list` file provided by the tenant)
+can be of the command names of scripts/executables. The names are no longer
+required to begin with `local_action_`.
 
-A new tornado web handler is created within the verifier to listen for requests
-that an agent will emit when it starts. We will call this `/nudge` for now with
-a more suitable name agreed within this review.
+There are two possibilities where the actual action can be found:
+pre-installed on the system or sent by the tenant as part of the
+initial encrypted payload ([secure payload]).
 
-A new `operational_state` named `OFFLINE` will be created for when a machine
-becomes unreachable during a `GET_QUOTE` `operational_state`. This state will be
-set once the agent fails to respond during its retry query period set within
-the `keylime.conf` configuration file.
+The following couple of new options are added to the `[cloud_agent]`
+section of the configuration file:
 
-A new database row will need to be introduced for the `OFFLINE`
-`operational_state`
+- `revocation_actions_dir` (_string_): The location where
+  pre-installed actions are found. It is suggested that this points to
+  a fixed/immutable location subject to attestation. The default is
+  `/usr/libexec/keylime`. See [Risks and
+  Mitigations](#risks-and-Mitigations) for details.
+- `allow_payload_revocation_actions` (_boolean_): Whether to invoke
+  revocation actions sent as part of payload. The default is `True`
+  and turning it off allows the agent to limit actions to only
+  pre-installed ones for more security.
 
-Agent Changes
--------------
+For backward compatibility, if there is no corresponding
+script/executable found on the system nor in the secure payload, the
+agent may fall back to the Python-based actions.
 
-Code will be introduced to the agent that will perform a `POST` request
-`/nudge` to inform the verifier an agent has been (re)started. This in turn will
-instruct the verifier to perform an `operational_state` query for the `UUID` of
-the concerned agent. Should the `operational_state` be `OFFLINE`, it will
-change the `operational_state` to `GET_QUOTE` and proceed to (re)start continuous
-monitoring of the node with the previous set measurements (`whitelist`,
-`tpm_policy`)
+The actual lookup procedure of the actions is as follows:
+1. Look for the named command on the system
+1. Look for the named command in the tenant-provided initial payload
+1. If the agent supports Python actions, look for the Python module on the system
+1. If the agent supports Python actions, look for the Python module in the tenant-provided initial payload
 
-Registrar Changes
-------------------
-
-No immediate changes come to mind, but we should be mindful of this as the
-design evolves.
-
-Keylime TPM coms changes
-------------------------
-
-We will need to assess changes required within our TPM communications. For
-example the Agent calls `tpm_startup -c` and takes ownership of the tpm
-every time it starts. The AK handle is also flushed.
-
-We may need to consider having some sort of flag the agent queries to establish
-its already associated with a verifier.
-
-Rather than bootstrapping itself as a fresh agent, it instead retains its TPM
-set up and instead just instantiates its web service to allow rest API
-interactions with the verifier again. These interactions will be a continuum
-of the previous quote `GET` requests from the verifier, while retaining the
-existing root of trust already set up by the registrar (EKpub and AKPub).
+The command takes a command-line argument: the absolute path to the
+file where the revocation message is stored in JSON.  Before being
+invoked, the process' working directory will be changed to the secure
+mount directory (`/var/lib/keylime/secure`) where any initial payload
+is extracted and stored.
 
 ### Test Plan
 
@@ -266,11 +264,9 @@ All code is expected to have adequate tests (eventually with coverage
 expectations).
 -->
 
-Functional tests will be needed to play out the user case of restarting a
-agent, persisting state and reestablishing measurements upon its restart.
-
-Unit tests will be needed to test the new `nudge` API functionality.
-
+ * A new unit test should be added to exercise action lookup
+ * A new integration test should be written to exercise revocation actions
+ 
 ### Upgrade / Downgrade Strategy
 
 <!--
@@ -280,8 +276,29 @@ this is in the test plan.
 Consider the following in developing an upgrade/downgrade strategy for this enhancement
 -->
 
-May need to consider impact of upgrading with an agent offline and then the new
-TPM code changes interacting with the TPM setup from the previous release.
+When downgrading, non-Python actions will stop working.  Proper log
+messages would help diagnose the issues.
+
+### Dependencie requirements
+
+<!--
+If your new change requires new dependencies, please outline and demonstrate that your selected dependency 
+is well maintained and packaged in Keylime's supported Operating Systems (currently Debian Stable
+and as of time writing Fedora 32/33). 
+
+During code implementation you will also be expected to add the package to CI , the keylime ansible role and 
+keylimes main installer (`keylime/installers.sh`).
+
+If the package is not available in the supported Operated systems, the PR will not be merged into master. 
+
+Adding the package in `requirements.txt` is not sufficent for master which is where we tag releases from. 
+
+You may however be able to work within an experimental branch until a package is made available. If this is
+the case, please outline it in this enhancement.
+
+-->
+
+No dependencies are known of.
 
 ## Drawbacks
 
@@ -289,7 +306,7 @@ TPM code changes interacting with the TPM setup from the previous release.
 Why should this enhancement _not_ be implemented?
 -->
 
-TBD
+No drawbacks are known of.
 
 ## Alternatives
 
@@ -299,10 +316,7 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-We evolve the retry handler in the verifier to wait for indefinite periods
-instead of having a wake up API - this is hazardous as we risk bottle necks
-and need to consider managing more state (for example a node goes offline to
-never return).
+ * It would also be an option to make use of an embeddable language runtime, such as Lua and mruby.
 
 ## Infrastructure Needed (optional)
 
@@ -311,6 +325,6 @@ Use this section if you need things infrastructure related specific to your enha
 new subproject, repos requested, github webhook, changes to CI (travis).
 -->
 
-Some changes may be needed to travis CI, but not expected currently.
+No infrastructure change needed.
 
-No new repos required.
+[secure payload]: https://keylime-docs.readthedocs.io/en/latest/user_guide/secure_payload.html

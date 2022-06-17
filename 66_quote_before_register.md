@@ -21,7 +21,7 @@ To get started with this template:
   start with the high-level sections and fill out details incrementally in
   subsequent PRs.
 -->
-# Persist verifier monitoring after agent restarts
+# enhancement-66: Verify identity quote before adding agent to verifier
 
 <!--
 This is the title of your enhancement.  Keep it short, simple, and descriptive.  A good
@@ -44,7 +44,6 @@ template.
 - [Proposal](#proposal)
   - [User Stories (optional)](#user-stories-optional)
     - [Story 1](#story-1)
-    - [Story 2](#story-2)
   - [Notes/Constraints/Caveats (optional)](#notesconstraintscaveats-optional)
   - [Risks and Mitigations](#risks-and-mitigations)
 - [Design Details](#design-details)
@@ -93,11 +92,8 @@ useful for a wide audience.
 A good summary is probably at least a paragraph in length.
 -->
 
-Should someone restart an agent based server or force an agent offline, the
-agent will no longer be monitored by the verifier. Upon starting the agent will
-just register with the registrar and IMA monitoring will cease.
-
-This behavior was originally discussed on the [keylime mailing list](https://keylime.groups.io/g/main/topic/q_is_an_agent_s_policy/72856684?p=,,,20,0,0,0::recentpostdate%2Fsticky,,,20,2,0,72856684)
+This document proposes that agents are added to the verifier only after the
+initial identity quote they provide to the tenant are successfully verified.
 
 ## Motivation
 
@@ -106,12 +102,15 @@ This section is for explicitly listing the motivation, goals and non-goals of
 this enhancement.  Describe why the change is important and the benefits to users.
 -->
 
-Its acceptable that someone may want to manually restart a server (or the server
-restarts as part of an automated work flow) while retaining the configuration
-set up during the intial "adding" of the agent to the verifier (`allowlist`,
-`tpm_policy`). They should not have to again add (or update) the verifier
-every time if there is not change in configuration or trust mapping (e.g software
-CA).
+Currently, the tenant first adds the agent to the verifier and then handles the
+provided initial quote, resulting in untrusted agents added to the verifier
+database.
+
+This behavior resulted in the following reported issue:
+* https://github.com/keylime/keylime/issues/680
+
+A related issue which could be mitigated by this enhancement:
+* https://github.com/keylime/keylime/issues/679
 
 ### Goals
 
@@ -120,9 +119,7 @@ List the specific goals of the enhancement.  What is it trying to achieve?  How 
 know that this has succeeded?
 -->
 
-A user restarts the agent on a target node. When the agent is becomes active
-again the verifier proceeds to recommence monitoring the delegated measurements
-from when the target agent was first added to the verifier and registrar.
+* Only trusted agents are added to the verifier database.
 
 ### Non-Goals
 
@@ -131,8 +128,7 @@ What is out of scope for this enhancement?  Listing non-goals helps to focus dis
 and make progress.
 -->
 
-Any sort of migration or fault redundancy (although both areas benefit from this
-change)
+* Make the operational states to be indicators of the agent trusted state.
 
 ## Proposal
 
@@ -144,19 +140,8 @@ implementation.  The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-A target machine is rebooted with no change in state (measured properties). This
-machine should not require “re adding” with the keylime tenant again.
-
-Once the target node / agent returns to an online / reachable state, the
-verifier should proceed to recommence run time monitoring.
-
-A new tornado web handler will be created within the verifier to listen for
-requests that an agent will emit when it (re)starts.
-
-Code will be introduced within the agent that will perform a `POST` request to
-inform the verifier an agent has been (re)started. This in turn will cause the
-verifier to perform an `operational_state query` for the `UUID` of that agent
-and then proceed to perform run time integrity monitoring again.
+The tenant must request initial identity quote to the agent and verify the quote
+before adding the agent to the verifier database.
 
 ### User Stories (optional)
 
@@ -167,17 +152,22 @@ the system.  The goal here is to make this feel real for users without getting
 bogged down.
 -->
 
-For any given reason my server reboots. Keylime handles this event and provides
-trust monitoring once the server and agent are back online and can be reached
-by the verifier.
+#### Story 1
 
-Should the machines state have been tampered with during the offline period,
-Keylime will immediate fail the target node accordingly (or likewise show the
-machine is still in the expected trust state according to the delegated
-measurements)
+* The user requests the tenant to add an agent
+* The tenant requests the initial identity quote to the agent
+* The tenant verifies the provided initial quote
+* If the initial quote is successfully verified, the tenant proceeds and adds
+    the agent to the verifier
 
-If I want to change measurements, I use the existing `update` command available
-in the Keylime Tenant CLI.
+### Notes/Constraints/Caveats (optional)
+
+<!--
+What are the caveats to the proposal?
+What are some important details that didn't come across above.
+Go in to as much detail as necessary here.
+This might be a good place to talk about core concepts and how they relate.
+-->
 
 ### Risks and Mitigations
 
@@ -189,8 +179,15 @@ enhancement ecosystem.
 How will security be reviewed and by whom?
 -->
 
-We should be sure we do not introduce security risks and be mindful of future
-enhancements such as multi tenancy, auth and migration.
+The enhancement proposed in this document changes the current behavior as an
+agent will not be added to the verifier unless the initial quote they provide is
+verified. If the current behavior is preferred, this enhancement proposal should
+be rejected.
+
+If the Keylime tenant is upgraded in an existing deployment in which the
+verifier database already contains untrusted agents, but before these agents
+provide initial identity quote, it is possible that the initial identity quote
+is never requested to these untrusted agents.
 
 ## Design Details
 
@@ -201,53 +198,14 @@ required) or even code snippets.  If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss them.
 -->
 
-Verifier Changes
-----------------
+The main modification would be changing the order of the operations executed by
+the tenant by swapping the `do_cv()` and `do_quote()` calls and fixing eventual
+dependencies `do_quote()` has from `do_cv()` (e.g. removing the agent from the
+verifier in case of failure).
 
-A new tornado web handler is created within the verifier to listen for requests
-that an agent will emit when it starts. We will call this `/nudge` for now with
-a more suitable name agreed within this review.
-
-A new `operational_state` named `OFFLINE` will be created for when a machine
-becomes unreachable during a `GET_QUOTE` `operational_state`. This state will be
-set once the agent fails to respond during its retry query period set within
-the `keylime.conf` configuration file.
-
-A new database row will need to be introduced for the `OFFLINE`
-`operational_state`
-
-Agent Changes
--------------
-
-Code will be introduced to the agent that will perform a `POST` request
-`/nudge` to inform the verifier an agent has been (re)started. This in turn will
-instruct the verifier to perform an `operational_state` query for the `UUID` of
-the concerned agent. Should the `operational_state` be `OFFLINE`, it will
-change the `operational_state` to `GET_QUOTE` and proceed to (re)start continuous
-monitoring of the node with the previous set measurements (`whitelist`,
-`tpm_policy`)
-
-Registrar Changes
-------------------
-
-No immediate changes come to mind, but we should be mindful of this as the
-design evolves.
-
-Keylime TPM coms changes
-------------------------
-
-We will need to assess changes required within our TPM communications. For
-example the Agent calls `tpm_startup -c` and takes ownership of the tpm
-every time it starts. The AK handle is also flushed.
-
-We may need to consider having some sort of flag the agent queries to establish
-its already associated with a verifier.
-
-Rather than bootstrapping itself as a fresh agent, it instead retains its TPM
-set up and instead just instantiates its web service to allow rest API
-interactions with the verifier again. These interactions will be a continuum
-of the previous quote `GET` requests from the verifier, while retaining the
-existing root of trust already set up by the registrar (EKpub and AKPub).
+It may be required to change the order of the operational states `REGISTERED`
+and `GET_QUOTE` or changing the semantics of the states `START` and
+`REGISTERED`.
 
 ### Test Plan
 
@@ -266,11 +224,6 @@ All code is expected to have adequate tests (eventually with coverage
 expectations).
 -->
 
-Functional tests will be needed to play out the user case of restarting a
-agent, persisting state and reestablishing measurements upon its restart.
-
-Unit tests will be needed to test the new `nudge` API functionality.
-
 ### Upgrade / Downgrade Strategy
 
 <!--
@@ -280,8 +233,36 @@ this is in the test plan.
 Consider the following in developing an upgrade/downgrade strategy for this enhancement
 -->
 
-May need to consider impact of upgrading with an agent offline and then the new
-TPM code changes interacting with the TPM setup from the previous release.
+If the upgrade happens after an untrusted agent is added to the database and
+before they provide the initial identity quote, it is possible that the initial
+identity quote is never requested to these untrusted agents.
+
+For this reason the upgrade should not be done before checking the state of all
+agents added to the verifier.
+
+There is no risk for new deployments where the verifier database does not
+contain any agent.
+
+### Dependencie requirements
+
+<!--
+If your new change requires new dependencies, please outline and demonstrate that your selected dependency
+is well maintained and packaged in Keylime's supported Operating Systems (currently Debian Stable
+and as of time writing Fedora 32/33).
+
+During code implementation you will also be expected to add the package to CI , the keylime ansible role and
+keylimes main installer (`keylime/installers.sh`).
+
+If the package is not available in the supported Operated systems, the PR will not be merged into master.
+
+Adding the package in `requirements.txt` is not sufficent for master which is where we tag releases from.
+
+You may however be able to work within an experimental branch until a package is made available. If this is
+the case, please outline it in this enhancement.
+
+-->
+
+* There are no new required dependencies.
 
 ## Drawbacks
 
@@ -289,7 +270,7 @@ TPM code changes interacting with the TPM setup from the previous release.
 Why should this enhancement _not_ be implemented?
 -->
 
-TBD
+* There are no known drawbacks.
 
 ## Alternatives
 
@@ -299,10 +280,8 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-We evolve the retry handler in the verifier to wait for indefinite periods
-instead of having a wake up API - this is hazardous as we risk bottle necks
-and need to consider managing more state (for example a node goes offline to
-never return).
+* Keep the current behavior, accepting untrusted agents to be added to the
+    verifier database.
 
 ## Infrastructure Needed (optional)
 
@@ -311,6 +290,4 @@ Use this section if you need things infrastructure related specific to your enha
 new subproject, repos requested, github webhook, changes to CI (travis).
 -->
 
-Some changes may be needed to travis CI, but not expected currently.
-
-No new repos required.
+No infrastructure change needed.

@@ -21,7 +21,7 @@ To get started with this template:
   start with the high-level sections and fill out details incrementally in
   subsequent PRs.
 -->
-# enhancement-NNNN: Your short, descriptive title
+# enhancement-23: Use a dedicated Keylime user account
 
 <!--
 This is the title of your enhancement.  Keep it short, simple, and descriptive.  A good
@@ -70,7 +70,7 @@ checklist items _must_ be updated for the enhancement to be released.
 -->
 
 - [ ] Enhancement issue in release milestone, which links to pull request in [keylime/enhancements]
-- [ ] Core members have approved the issue with the label `in-progress`
+- [ ] Core members have approved the issue with the label `implementable`
 - [ ] Design details are appropriately documented
 - [ ] Test plan is in place
 - [ ] User-facing documentation has been created in [keylime/keylime-docs]
@@ -81,64 +81,80 @@ checklist items _must_ be updated for the enhancement to be released.
 
 ## Summary
 
-<!--
-This section is incredibly important for producing high quality user-focused
-documentation such as release notes or a development roadmap.  It should be
-possible to collect this information before implementation begins in order to
-avoid requiring implementers to split their attention between writing release
-notes and implementing the feature itself. Reviewers
-should help to ensure that the tone and content of the `Summary` section is
-useful for a wide audience.
+Currently, Keylime runs as the root user, providing it essentially all control
+over a host on which Keylime runs. This enhancement suggests changing this to
+running Keylime (specifically, its different components) under a dedicated user
+account to limit the level of damage that could happen should a vulnerability in
+Keylime be exploited.
 
-A good summary is probably at least a paragraph in length.
--->
+We will analyse Keylime Verifier, Keylime Registrar and Keylime Agent to decide
+which do not need root access to run properly, and then make necessary changes
+to run them under their own dedicated user, `keylime`.
 
 ## Motivation
 
-<!--
-This section is for explicitly listing the motivation, goals and non-goals of
-this enhancement.  Describe why the change is important and the benefits to users.
--->
+Running everything as root is bad practice: any piece of software may have a
+vulnerability, and if a bug in a piece of software running as root is exploited,
+the negative consequences to the host system can be dramatic, essentially
+allowing the malicious party exploiting the bug to have full control over the
+system (There are some exceptions to this, which we will not consider
+specifically here as they are system-dependent, such as running software in
+TEEs)).
+
+A simple and well-known defense against this is privilege separation,
+specifically the least privileged model, where each piece of software is given
+the rights necessary to run properly, but no more. As such, we want to
+make sure that, in as many cases as possible, Keylime components do not run as
+the root user but as a specific user, whose rights on a host are more
+specifically scoped out, minimising the risk of damage should an exploitable
+vulnerability be found in Keylime.
 
 ### Goals
 
-<!--
-List the specific goals of the enhancement.  What is it trying to achieve?  How will we
-know that this has succeeded?
--->
+The goals of the enhancement is to move as many components of Keylime as
+possible from running as the root user to running as a dedicated user, called
+`keylime`.
 
 ### Non-Goals
 
-<!--
-What is out of scope for this enhancement?  Listing non-goals helps to focus discussion
-and make progress.
--->
+This enhancement does not aim to solve the problem of Keylime dependencies
+running as root, such as tpm2-tools.
 
 ## Proposal
 
-<!--
-This is where we get down to the specifics of what the proposal actually is.
-This should have enough detail that reviewers can understand exactly what
-you're proposing, but should not include things like API designs or
-implementation.  The "Design Details" section below is for the real
-nitty-gritty.
--->
+In practice, this enhancement will happen in stages.
+
+First, evaluate the different Keylime components to see which ones are being run
+as the root user by convenience, and which ones may genuinely need to do so to
+be able to operate properly.
+
+Once this is done, we will look at the best option to run each of these
+components under the Keylime user. This may be as simple as modifying the
+systemd unit file to specify a user under which to run Keylime.
+
+Other files that will need to be modified to take this change into account are
+`installer.sh`, `run_tests.sh` as well as the Ansible role for Keylime. There
+may be some work to do on the SElinux labels too. 
+
+Finally, the documentation will have to be updated as well.
 
 ### User Stories (optional)
 
-<!--
-Detail the things that people will be able to do if this enhancement is implemented.
-Include as much detail as possible so that people can understand the "how" of
-the system.  The goal here is to make this feel real for users without getting
-bogged down.
--->
-
 #### Story 1
 
-#### Story 2
+As a system administrator in an organisation with strong security rules
+regarding the software that may be run, and how, i would like to use Keylime for
+the benefits it provides, but cannot as only a very limited subset of software
+from a pre-approved list is allowed to run as root on the organisation's hosts,
+and Keylime is not one of them.
+
+Now that Keylime uses its own dedicated user account, this aligns Keylime with my
+organisation's policy and i can deploy Keylime.
+
 
 ### Notes/Constraints/Caveats (optional)
 
+TBD
 <!--
 What are the caveats to the proposal?
 What are some important details that didn't come across above.
@@ -148,6 +164,7 @@ This might be a good place to talk about core concepts and how they relate.
 
 ### Risks and Mitigations
 
+TBD
 <!--
 What are the risks of this proposal and how do we mitigate.  Think broadly.
 For example, consider both security and how this will impact the larger
@@ -158,6 +175,7 @@ How will security be reviewed and by whom?
 
 ## Design Details
 
+TBD
 <!--
 This section should contain enough information that the specifics of your
 change are understandable.  This may include API specs (though not always
@@ -167,6 +185,7 @@ proposal will be implemented, this is the place to discuss them.
 
 ### Test Plan
 
+TBD
 <!--
 **Note:** *Not required until targeted at a release.*
 
@@ -184,6 +203,7 @@ expectations).
 
 ### Upgrade / Downgrade Strategy
 
+TBD
 <!--
 If applicable, how will the component be upgraded and downgraded? Make sure
 this is in the test plan.
@@ -191,42 +211,20 @@ this is in the test plan.
 Consider the following in developing an upgrade/downgrade strategy for this enhancement
 -->
 
-### Dependencie requirements
-
-<!--
-If your new change requires new dependencies, please outline and demonstrate that your selected dependency 
-is well maintained and packaged in Keylime's supported Operating Systems (currently Debian Stable
-and as of time writing Fedora 32/33). 
-
-During code implementation you will also be expected to add the package to CI , the keylime ansible role and 
-keylimes main installer (`keylime/installers.sh`).
-
-If the package is not available in the supported Operated systems, the PR will not be merged into master. 
-
-Adding the package in `requirements.txt` is not sufficent for master which is where we tag releases from. 
-
-You may however be able to work within an experimental branch until a package is made available. If this is
-the case, please outline it in this enhancement.
-
--->
-
 ## Drawbacks
 
-<!--
-Why should this enhancement _not_ be implemented?
--->
+It makes the overall design of Keylime a bit more complicated. However, we
+believe that benefits provided by improving privilege separation vastly
+outweigh this drawback.
 
 ## Alternatives
 
-<!--
-What other approaches did you consider and why did you rule them out?  These do
-not need to be as detailed as the proposal, but should include enough
-information to express the idea and why it was not acceptable.
--->
+Privilege separation (and more generally, defense in depth) can be done at
+various levels, however at the level we are discussing here (users on a
+UNIX-based system) there are no alternatives to my knowledge.  
+Mandatory Access Control (MAC) systems, such as SElinux, are complementary 
+rather than alternatives to user privilege separation.
 
 ## Infrastructure Needed (optional)
 
-<!--
-Use this section if you need things infrastructure related specific to your enhancement.  Examples include a
-new subproject, repos requested, github webhook, changes to CI (travis).
--->
+N/A

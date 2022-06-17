@@ -21,13 +21,7 @@ To get started with this template:
   start with the high-level sections and fill out details incrementally in
   subsequent PRs.
 -->
-# enhancement-NNNN: Your short, descriptive title
-
-<!--
-This is the title of your enhancement.  Keep it short, simple, and descriptive.  A good
-title can help communicate what the enhancement is and should be considered as part of
-any review.
--->
+# enhancement-18: Migrate CI to Github Actions
 
 <!--
 A table of contents is helpful for quickly jumping to sections of a enhancement and for
@@ -69,8 +63,8 @@ Check these off as they are completed for the Release Team to track. These
 checklist items _must_ be updated for the enhancement to be released.
 -->
 
-- [ ] Enhancement issue in release milestone, which links to pull request in [keylime/enhancements]
-- [ ] Core members have approved the issue with the label `in-progress`
+- [x] Enhancement issue in release milestone, which links to pull request in [keylime/enhancements]
+- [ ] Core members have approved the issue with the label `implementable`
 - [ ] Design details are appropriately documented
 - [ ] Test plan is in place
 - [ ] User-facing documentation has been created in [keylime/keylime-docs]
@@ -81,31 +75,35 @@ checklist items _must_ be updated for the enhancement to be released.
 
 ## Summary
 
-<!--
-This section is incredibly important for producing high quality user-focused
-documentation such as release notes or a development roadmap.  It should be
-possible to collect this information before implementation begins in order to
-avoid requiring implementers to split their attention between writing release
-notes and implementing the feature itself. Reviewers
-should help to ensure that the tone and content of the `Summary` section is
-useful for a wide audience.
+The Keylime project's current CI pipeline is implemented using Travis CI's
+toolset. While functional, the team has noticed some shortcomings around
+reliability, performance, and general integration with Github.
 
-A good summary is probably at least a paragraph in length.
--->
+In the meantime, Github has rolled out its homegrown Github Actions CI and test
+system to general availability. Project contributors that have used the system
+for other projects have noted its general improvements over Travis, and the
+project would like to transition its existing CI setup over to Actions.
 
 ## Motivation
 
-<!--
-This section is for explicitly listing the motivation, goals and non-goals of
-this enhancement.  Describe why the change is important and the benefits to users.
--->
+Keylime's current CI pipeline isn't satisfactory to the project's contributors,
+and better alternatives (notably Github Actions) exists. We would like to switch
+to Actions entirely.
+
+In particular, Github Actions is:
+
+- Directly integrated into Github's UI
+- Fast -- jobs start quickly, and most lead time happens at compilation or
+  environment setup
+- Extensible -- there are thousands of actions available for a wide variety of
+  tasks
+- Familar -- fits the fork-request-merge model just like developers expect
+  modern CI to behave
 
 ### Goals
 
-<!--
-List the specific goals of the enhancement.  What is it trying to achieve?  How will we
-know that this has succeeded?
--->
+- Provide the same test coverage as Travis curently offers using Github Actions.
+- Once the above is complete: Stop using Travis on Keylime repos completely.
 
 ### Non-Goals
 
@@ -116,13 +114,14 @@ and make progress.
 
 ## Proposal
 
-<!--
-This is where we get down to the specifics of what the proposal actually is.
-This should have enough detail that reviewers can understand exactly what
-you're proposing, but should not include things like API designs or
-implementation.  The "Design Details" section below is for the real
-nitty-gritty.
--->
+Keylime's current Travis config is located, as all Travis configs are, in
+`~/.travis.yml`. All fundamental functionality of this config should be
+replicated in an equivalent Actions workflow, which would be housed under, for
+example, `~/.github/workflows/test.yml`.
+
+The current config makes use of several containers. It will be worth
+investigating whether these containers can be run on Github's standard runners,
+and how we might have to change the containers to fully migrate (if at all).
 
 ### User Stories (optional)
 
@@ -156,6 +155,8 @@ enhancement ecosystem.
 How will security be reviewed and by whom?
 -->
 
+TBD
+
 ## Design Details
 
 <!--
@@ -164,6 +165,8 @@ change are understandable.  This may include API specs (though not always
 required) or even code snippets.  If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss them.
 -->
+
+TBD
 
 ### Test Plan
 
@@ -182,39 +185,28 @@ All code is expected to have adequate tests (eventually with coverage
 expectations).
 -->
 
+TBD
+
 ### Upgrade / Downgrade Strategy
 
-<!--
-If applicable, how will the component be upgraded and downgraded? Make sure
-this is in the test plan.
+As Actions is an entirely separate system from Travis, it's feasible to build
+out an Actions presence while still using Travis. When we believe Actions
+works sufficiently, we can simply turn Travis off.
 
-Consider the following in developing an upgrade/downgrade strategy for this enhancement
--->
+Github Actions configs can be updated by simply changing their workflow file in
+a pull request.
 
-### Dependencie requirements
-
-<!--
-If your new change requires new dependencies, please outline and demonstrate that your selected dependency 
-is well maintained and packaged in Keylime's supported Operating Systems (currently Debian Stable
-and as of time writing Fedora 32/33). 
-
-During code implementation you will also be expected to add the package to CI , the keylime ansible role and 
-keylimes main installer (`keylime/installers.sh`).
-
-If the package is not available in the supported Operated systems, the PR will not be merged into master. 
-
-Adding the package in `requirements.txt` is not sufficent for master which is where we tag releases from. 
-
-You may however be able to work within an experimental branch until a package is made available. If this is
-the case, please outline it in this enhancement.
-
--->
+Changes to existing workflows via PR will be reflected in the workflow that
+runs on the PR that makes the changes. This is particularly handy for code
+tests.
 
 ## Drawbacks
 
 <!--
 Why should this enhancement _not_ be implemented?
 -->
+
+Some extra implementation work, though for a good payoff.
 
 ## Alternatives
 
@@ -226,6 +218,7 @@ information to express the idea and why it was not acceptable.
 
 ## Infrastructure Needed (optional)
 
+Likely some cooperation from project admins at times.
 <!--
 Use this section if you need things infrastructure related specific to your enhancement.  Examples include a
 new subproject, repos requested, github webhook, changes to CI (travis).

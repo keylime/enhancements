@@ -21,7 +21,7 @@ To get started with this template:
   start with the high-level sections and fill out details incrementally in
   subsequent PRs.
 -->
-# Persist verifier monitoring after agent restarts
+# enhancement-NNNN: Your short, descriptive title
 
 <!--
 This is the title of your enhancement.  Keep it short, simple, and descriptive.  A good
@@ -93,11 +93,10 @@ useful for a wide audience.
 A good summary is probably at least a paragraph in length.
 -->
 
-Should someone restart an agent based server or force an agent offline, the
-agent will no longer be monitored by the verifier. Upon starting the agent will
-just register with the registrar and IMA monitoring will cease.
-
-This behavior was originally discussed on the [keylime mailing list](https://keylime.groups.io/g/main/topic/q_is_an_agent_s_policy/72856684?p=,,,20,0,0,0::recentpostdate%2Fsticky,,,20,2,0,72856684)
+Keylime currently only supports verification of IMA measurement lists against
+an allowlist (whitelist) and exclude list. This proposal suggests to extend
+Keylime to support IMA signature verification by supporting the 'ima-sig'
+template.
 
 ## Motivation
 
@@ -106,12 +105,16 @@ This section is for explicitly listing the motivation, goals and non-goals of
 this enhancement.  Describe why the change is important and the benefits to users.
 -->
 
-Its acceptable that someone may want to manually restart a server (or the server
-restarts as part of an automated work flow) while retaining the configuration
-set up during the intial "adding" of the agent to the verifier (`allowlist`,
-`tpm_policy`). They should not have to again add (or update) the verifier
-every time if there is not change in configuration or trust mapping (e.g software
-CA).
+The allowlist that is used to verify the IMA measurements received from a
+system may be a huge list with multiple thousand entries. The size of
+the allowlist primarily depends on the number of software packages installed
+on a system and thus the expected number of possible measurements coming from
+that system. An alternative to allowlist reconciliation is to verify file
+signatures using a few keys that were used to sign immutable files on such a
+system. A combination of both is also possible.
+
+Having an exclude list to skip over measurements on mutable files will still be
+necessary since those cannot be signed.
 
 ### Goals
 
@@ -120,9 +123,11 @@ List the specific goals of the enhancement.  What is it trying to achieve?  How 
 know that this has succeeded?
 -->
 
-A user restarts the agent on a target node. When the agent is becomes active
-again the verifier proceeds to recommence monitoring the delegated measurements
-from when the target agent was first added to the verifier and registrar.
+The goal of this extension involves the following:
+- Support for parsing 'ima-sig' template entries in the IMA measurement list
+- Support for signature verification of each signature found in an 'ima-sig'
+  template using per-system public keys
+- Registration of per-system public keys to be used for signature verification
 
 ### Non-Goals
 
@@ -131,8 +136,10 @@ What is out of scope for this enhancement?  Listing non-goals helps to focus dis
 and make progress.
 -->
 
-Any sort of migration or fault redundancy (although both areas benefit from this
-change)
+The following is a list of non-goals:
+- Addition of support for other IMA templates besides the proposed 'ima-sig'
+  template; others can be supported later through separate enhancements
+
 
 ## Proposal
 
@@ -144,40 +151,42 @@ implementation.  The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-A target machine is rebooted with no change in state (measured properties). This
-machine should not require “re adding” with the keylime tenant again.
+This proposal will develop and deliver the following features:
+- The verifier will be extended to support parsing the 'ima-sig' template
+- The verifier will be extended to support signature verification on
+  signatures found in a 'ima-sig' template entry using per-system
+  registered public keys (RSA, DSA, EC, etc)
+- The verifier will require that each IMA measurement list entry will
+  either be verifiable with a key or can be reconciled against
+  a allowlist or exclude list; every IMA measurement list entry must
+  be 'covered'
+- The tenant client tool will be extended to support registering
+  per-system public keys to be used for signature verification
+- Test cases will be written that read in the example keys and
+  IMA measuement lists and perform signature verification along
+  with alllwlist and exclude list reconciliation
 
-Once the target node / agent returns to an online / reachable state, the
-verifier should proceed to recommence run time monitoring.
-
-A new tornado web handler will be created within the verifier to listen for
-requests that an agent will emit when it (re)starts.
-
-Code will be introduced within the agent that will perform a `POST` request to
-inform the verifier an agent has been (re)started. This in turn will cause the
-verifier to perform an `operational_state query` for the `UUID` of that agent
-and then proceed to perform run time integrity monitoring again.
-
-### User Stories (optional)
+### Notes/Constraints/Caveats (optional)
 
 <!--
-Detail the things that people will be able to do if this enhancement is implemented.
-Include as much detail as possible so that people can understand the "how" of
-the system.  The goal here is to make this feel real for users without getting
-bogged down.
+What are the caveats to the proposal?
+What are some important details that didn't come across above.
+Go in to as much detail as necessary here.
+This might be a good place to talk about core concepts and how they relate.
 -->
 
-For any given reason my server reboots. Keylime handles this event and provides
-trust monitoring once the server and agent are back online and can be reached
-by the verifier.
-
-Should the machines state have been tampered with during the offline period,
-Keylime will immediate fail the target node accordingly (or likewise show the
-machine is still in the expected trust state according to the delegated
-measurements)
-
-If I want to change measurements, I use the existing `update` command available
-in the Keylime Tenant CLI.
+- Signature verification may be more CPU intensive than verification
+  against a small allowlist of measurements; on the other hand
+  the advantage of signature verification is that it only needs a few
+  keys rather than a possibly huge allowlist
+- Every IMA measurement entry should be covered either using a
+  measurement allowlist reconciliation, be part of an exclude list, or
+  the signature verification has to succeed; the complexity on
+  the user side is to setup a system by signing some immutable files
+  while leaving others to allowlist and putting mutable files
+  into an exclude list
+- A prototype of this extension is being built here:
+  https://github.com/stefanberger/keylime/commits/ima_sig
 
 ### Risks and Mitigations
 
@@ -189,8 +198,7 @@ enhancement ecosystem.
 How will security be reviewed and by whom?
 -->
 
-We should be sure we do not introduce security risks and be mindful of future
-enhancements such as multi tenancy, auth and migration.
+TBD
 
 ## Design Details
 
@@ -201,53 +209,23 @@ required) or even code snippets.  If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss them.
 -->
 
-Verifier Changes
-----------------
+To make it easy for a client, the tenant tool will be able to read
+public key files in various format, such as PEM or DER formatted
+public keys, x509 certificates, or even private keys. Only the public
+key parts will be stored in the Keylime database.
 
-A new tornado web handler is created within the verifier to listen for requests
-that an agent will emit when it starts. We will call this `/nudge` for now with
-a more suitable name agreed within this review.
-
-A new `operational_state` named `OFFLINE` will be created for when a machine
-becomes unreachable during a `GET_QUOTE` `operational_state`. This state will be
-set once the agent fails to respond during its retry query period set within
-the `keylime.conf` configuration file.
-
-A new database row will need to be introduced for the `OFFLINE`
-`operational_state`
-
-Agent Changes
--------------
-
-Code will be introduced to the agent that will perform a `POST` request
-`/nudge` to inform the verifier an agent has been (re)started. This in turn will
-instruct the verifier to perform an `operational_state` query for the `UUID` of
-the concerned agent. Should the `operational_state` be `OFFLINE`, it will
-change the `operational_state` to `GET_QUOTE` and proceed to (re)start continuous
-monitoring of the node with the previous set measurements (`whitelist`,
-`tpm_policy`)
-
-Registrar Changes
-------------------
-
-No immediate changes come to mind, but we should be mindful of this as the
-design evolves.
-
-Keylime TPM coms changes
-------------------------
-
-We will need to assess changes required within our TPM communications. For
-example the Agent calls `tpm_startup -c` and takes ownership of the tpm
-every time it starts. The AK handle is also flushed.
-
-We may need to consider having some sort of flag the agent queries to establish
-its already associated with a verifier.
-
-Rather than bootstrapping itself as a fresh agent, it instead retains its TPM
-set up and instead just instantiates its web service to allow rest API
-interactions with the verifier again. These interactions will be a continuum
-of the previous quote `GET` requests from the verifier, while retaining the
-existing root of trust already set up by the registrar (EKpub and AKPub).
+The existing exclude list will be used for skipping of mutable files.
+If no allowlist is passed via the tenant tool, only signatures Will be
+verified. All IMA measurement list entries that have signatures must be verifiable
+with one of the provided public keys, otherwise the file must be in the excluded
+list.
+If an allowlist, exclude list, and keys for signature verification are provided
+then each measurement list entry that is not skipped due to the exclude list
+must pass both the signature verification and be in the allowlist. Another
+model would be to require signature validation for entries that show a signature
+and be in the allowlist otherwise. If such a model is valid, then this could be
+enabled with some sort of evaluation policy (a simple flag). Different behavior
+on a per measurement list entry basis may be too complicated to setup for a user.
 
 ### Test Plan
 
@@ -266,10 +244,11 @@ All code is expected to have adequate tests (eventually with coverage
 expectations).
 -->
 
-Functional tests will be needed to play out the user case of restarting a
-agent, persisting state and reestablishing measurements upon its restart.
-
-Unit tests will be needed to test the new `nudge` API functionality.
+For testing we will use sample IMA measurement lists that have the 'ima-sig'
+template and file signatures, along with measurement whitelists and excluded
+lists and with various formats of keys for usage in signature verification.
+Test cases will verify the successes and intended failures to verify 'ima-sig'
+measurement lists.
 
 ### Upgrade / Downgrade Strategy
 
@@ -280,8 +259,7 @@ this is in the test plan.
 Consider the following in developing an upgrade/downgrade strategy for this enhancement
 -->
 
-May need to consider impact of upgrading with an agent offline and then the new
-TPM code changes interacting with the TPM setup from the previous release.
+TBD
 
 ## Drawbacks
 
@@ -289,7 +267,7 @@ TPM code changes interacting with the TPM setup from the previous release.
 Why should this enhancement _not_ be implemented?
 -->
 
-TBD
+No known drawbacks.
 
 ## Alternatives
 
@@ -299,10 +277,7 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-We evolve the retry handler in the verifier to wait for indefinite periods
-instead of having a wake up API - this is hazardous as we risk bottle necks
-and need to consider managing more state (for example a node goes offline to
-never return).
+No known alternatives.
 
 ## Infrastructure Needed (optional)
 
@@ -310,7 +285,3 @@ never return).
 Use this section if you need things infrastructure related specific to your enhancement.  Examples include a
 new subproject, repos requested, github webhook, changes to CI (travis).
 -->
-
-Some changes may be needed to travis CI, but not expected currently.
-
-No new repos required.

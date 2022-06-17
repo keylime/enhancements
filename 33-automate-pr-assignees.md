@@ -21,7 +21,7 @@ To get started with this template:
   start with the high-level sections and fill out details incrementally in
   subsequent PRs.
 -->
-# Persist verifier monitoring after agent restarts
+# enhancement-33: Automate assignees on enhancement proposal PRs
 
 <!--
 This is the title of your enhancement.  Keep it short, simple, and descriptive.  A good
@@ -92,12 +92,7 @@ useful for a wide audience.
 
 A good summary is probably at least a paragraph in length.
 -->
-
-Should someone restart an agent based server or force an agent offline, the
-agent will no longer be monitored by the verifier. Upon starting the agent will
-just register with the registrar and IMA monitoring will cease.
-
-This behavior was originally discussed on the [keylime mailing list](https://keylime.groups.io/g/main/topic/q_is_an_agent_s_policy/72856684?p=,,,20,0,0,0::recentpostdate%2Fsticky,,,20,2,0,72856684)
+Keylime's `enhancements` process uses Github's Pull Requests feature for proposing changes, allowing collaborators to make use of the robust review tools to suggest improvements or facilitate discussion. The process does not, however, make use of Github's assignee or review request features. This presents an opportunity to apply some generalized automation work done for the Enarx project around making PR assignees more useful than a manual field -- instead, automating it to directly indicate who is responsible for pushing a PR towards merge. This work could also eventually apply to other Keylime repos as well.
 
 ## Motivation
 
@@ -105,13 +100,10 @@ This behavior was originally discussed on the [keylime mailing list](https://key
 This section is for explicitly listing the motivation, goals and non-goals of
 this enhancement.  Describe why the change is important and the benefits to users.
 -->
+Github's PR assignee feature is currently underutilized. At best, it's usually used to designate someone as a point of contact for that PR.
 
-Its acceptable that someone may want to manually restart a server (or the server
-restarts as part of an automated work flow) while retaining the configuration
-set up during the intial "adding" of the agent to the verifier (`allowlist`,
-`tpm_policy`). They should not have to again add (or update) the verifier
-every time if there is not change in configuration or trust mapping (e.g software
-CA).
+The Enarx project has developed some automation tools that seek to change that, however -- in particular, making a PR's current assignee reflect immediate responsibility for pushing a PR forward. Effectively, whenever something is assigned to someone, that assignment means they, specifically, are needed -- a nice usability benefit for developers and reviewers.
+
 
 ### Goals
 
@@ -119,10 +111,7 @@ CA).
 List the specific goals of the enhancement.  What is it trying to achieve?  How will we
 know that this has succeeded?
 -->
-
-A user restarts the agent on a target node. When the agent is becomes active
-again the verifier proceeds to recommence monitoring the delegated measurements
-from when the target agent was first added to the verifier and registrar.
+Enable automation from Enarx on `keylime/enhancements`
 
 ### Non-Goals
 
@@ -130,9 +119,7 @@ from when the target agent was first added to the verifier and registrar.
 What is out of scope for this enhancement?  Listing non-goals helps to focus discussion
 and make progress.
 -->
-
-Any sort of migration or fault redundancy (although both areas benefit from this
-change)
+TBD
 
 ## Proposal
 
@@ -143,20 +130,24 @@ you're proposing, but should not include things like API designs or
 implementation.  The "Design Details" section below is for the real
 nitty-gritty.
 -->
+The proposed automation was developed and refined for the Enarx project and available through [enarx/bot](https://github.com/enarx/bot), or the Enarxbot. The particular component of interest for this proposal has been split out and made generally available in [actions-automation/pr-workflow](https://github.com/actions-automation/pr-workflow), which contains a standalone Github Action with relevant logic.
 
-A target machine is rebooted with no change in state (measured properties). This
-machine should not require “re adding” with the keylime tenant again.
+Once this action has been included (using a workflow `.yml` present in `.github/workflows`) and other requisite setup steps taken, the bot should:
 
-Once the target node / agent returns to an online / reachable state, the
-verifier should proceed to recommence run time monitoring.
+- Automatically request a specified number of reviewers on new pull requests -- in addition to code owners (requested by Github), the bot will request a suggested reviewer, in addition to however many people are needed to hit a user-input target number of reviewers from a user-defined Github team;
+- Automatically change PR assignees based on the current state of the PR and its reviews.
 
-A new tornado web handler will be created within the verifier to listen for
-requests that an agent will emit when it (re)starts.
+Here's an example of a typical timeline of events on a PR:
+- Alice opens a PR. Bob, Charlie, and Dora are requested for review.
+- Bob, Charlie, and Dora are assigned to the PR, and Alice is not (since she is still awaiting a review, she can't do anything else to push it forward).
+- Bob submits a review requesting changes. Bob is unassigned from the PR, and Alice is reassigned, since she must address Bob's review.
+- Alice submits a patch to the PR addressing Bob's changes, and requests a re-review. Alice is once again unassigned from the PR, while Bob is reassigned.
+- Bob thinks the changes look good, and approves the PR. Bob is unassigned, since he's approved it.
+- Alice pushes another patch, dismissing Bob's approving review. Bob is assigned again to approve the updated PR.
 
-Code will be introduced within the agent that will perform a `POST` request to
-inform the verifier an agent has been (re)started. This in turn will cause the
-verifier to perform an `operational_state query` for the `UUID` of that agent
-and then proceed to perform run time integrity monitoring again.
+This cycle repeats until a satisfactory number of approvals has been reached and there are no outstanding Changes Requested reviews.
+
+This cycle is excellent for indicating responsibility, and, on the Enarx project, has been positively received.
 
 ### User Stories (optional)
 
@@ -167,17 +158,18 @@ the system.  The goal here is to make this feel real for users without getting
 bogged down.
 -->
 
-For any given reason my server reboots. Keylime handles this event and provides
-trust monitoring once the server and agent are back online and can be reached
-by the verifier.
+#### Story 1
 
-Should the machines state have been tampered with during the offline period,
-Keylime will immediate fail the target node accordingly (or likewise show the
-machine is still in the expected trust state according to the delegated
-measurements)
+#### Story 2
 
-If I want to change measurements, I use the existing `update` command available
-in the Keylime Tenant CLI.
+### Notes/Constraints/Caveats (optional)
+
+<!--
+What are the caveats to the proposal?
+What are some important details that didn't come across above.
+Go in to as much detail as necessary here.
+This might be a good place to talk about core concepts and how they relate.
+-->
 
 ### Risks and Mitigations
 
@@ -188,9 +180,7 @@ enhancement ecosystem.
 
 How will security be reviewed and by whom?
 -->
-
-We should be sure we do not introduce security risks and be mindful of future
-enhancements such as multi tenancy, auth and migration.
+TBD
 
 ## Design Details
 
@@ -200,54 +190,7 @@ change are understandable.  This may include API specs (though not always
 required) or even code snippets.  If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss them.
 -->
-
-Verifier Changes
-----------------
-
-A new tornado web handler is created within the verifier to listen for requests
-that an agent will emit when it starts. We will call this `/nudge` for now with
-a more suitable name agreed within this review.
-
-A new `operational_state` named `OFFLINE` will be created for when a machine
-becomes unreachable during a `GET_QUOTE` `operational_state`. This state will be
-set once the agent fails to respond during its retry query period set within
-the `keylime.conf` configuration file.
-
-A new database row will need to be introduced for the `OFFLINE`
-`operational_state`
-
-Agent Changes
--------------
-
-Code will be introduced to the agent that will perform a `POST` request
-`/nudge` to inform the verifier an agent has been (re)started. This in turn will
-instruct the verifier to perform an `operational_state` query for the `UUID` of
-the concerned agent. Should the `operational_state` be `OFFLINE`, it will
-change the `operational_state` to `GET_QUOTE` and proceed to (re)start continuous
-monitoring of the node with the previous set measurements (`whitelist`,
-`tpm_policy`)
-
-Registrar Changes
-------------------
-
-No immediate changes come to mind, but we should be mindful of this as the
-design evolves.
-
-Keylime TPM coms changes
-------------------------
-
-We will need to assess changes required within our TPM communications. For
-example the Agent calls `tpm_startup -c` and takes ownership of the tpm
-every time it starts. The AK handle is also flushed.
-
-We may need to consider having some sort of flag the agent queries to establish
-its already associated with a verifier.
-
-Rather than bootstrapping itself as a fresh agent, it instead retains its TPM
-set up and instead just instantiates its web service to allow rest API
-interactions with the verifier again. These interactions will be a continuum
-of the previous quote `GET` requests from the verifier, while retaining the
-existing root of trust already set up by the registrar (EKpub and AKPub).
+TBD
 
 ### Test Plan
 
@@ -265,11 +208,7 @@ challenging to test should be called out.
 All code is expected to have adequate tests (eventually with coverage
 expectations).
 -->
-
-Functional tests will be needed to play out the user case of restarting a
-agent, persisting state and reestablishing measurements upon its restart.
-
-Unit tests will be needed to test the new `nudge` API functionality.
+TBD
 
 ### Upgrade / Downgrade Strategy
 
@@ -279,16 +218,13 @@ this is in the test plan.
 
 Consider the following in developing an upgrade/downgrade strategy for this enhancement
 -->
-
-May need to consider impact of upgrading with an agent offline and then the new
-TPM code changes interacting with the TPM setup from the previous release.
+Removing the appropriate Actions workflow should disable automation cleanly.
 
 ## Drawbacks
 
 <!--
 Why should this enhancement _not_ be implemented?
 -->
-
 TBD
 
 ## Alternatives
@@ -298,11 +234,7 @@ What other approaches did you consider and why did you rule them out?  These do
 not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
-
-We evolve the retry handler in the verifier to wait for indefinite periods
-instead of having a wake up API - this is hazardous as we risk bottle necks
-and need to consider managing more state (for example a node goes offline to
-never return).
+No direct alternatives.
 
 ## Infrastructure Needed (optional)
 
@@ -310,7 +242,9 @@ never return).
 Use this section if you need things infrastructure related specific to your enhancement.  Examples include a
 new subproject, repos requested, github webhook, changes to CI (travis).
 -->
+In order to fully do its magic, the bot needs several things:
 
-Some changes may be needed to travis CI, but not expected currently.
-
-No new repos required.
+- A separate user account, scoped to have write access to the Keylime organization (in this case, write access to repos it interacts with should be enough)
+- a personal access token with the `public_repo` scope stored as a [shared organization secret](https://docs.github.com/en/free-pro-team@latest/actions/reference/encrypted-secrets), named `BOT_TOKEN`.
+- a Github Team in the parent organization that contains people that may be requested to review pull requests
+- (optional) a set of code owners specified in a `CODEOWNERS` file

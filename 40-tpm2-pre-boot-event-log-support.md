@@ -21,7 +21,7 @@ To get started with this template:
   start with the high-level sections and fill out details incrementally in
   subsequent PRs.
 -->
-# Persist verifier monitoring after agent restarts
+# enhancement-#40: TPM 2.0 Pre-Boot Event log support
 
 <!--
 This is the title of your enhancement.  Keep it short, simple, and descriptive.  A good
@@ -36,6 +36,7 @@ template.
 -->
 
 <!-- toc -->
+
 - [Release Signoff Checklist](#release-signoff-checklist)
 - [Summary](#summary)
 - [Motivation](#motivation)
@@ -93,11 +94,13 @@ useful for a wide audience.
 A good summary is probably at least a paragraph in length.
 -->
 
-Should someone restart an agent based server or force an agent offline, the
-agent will no longer be monitored by the verifier. Upon starting the agent will
-just register with the registrar and IMA monitoring will cease.
-
-This behavior was originally discussed on the [keylime mailing list](https://keylime.groups.io/g/main/topic/q_is_an_agent_s_policy/72856684?p=,,,20,0,0,0::recentpostdate%2Fsticky,,,20,2,0,72856684)
+Provide Keylime with the ability to extract and process the TPM 2.0 Pre-Boot
+Event Log Keylime. Event logs are highly useful in attestation given that these
+can be used to reconstruct the values of any TPM PCR. With the proposed enhancement,
+Keylime `agents` will to access the contents of the event log (via `securityfs`), ship it
+to a `verifier`, and have it properly processed there. This framework is very similar
+to what is already done currently for IMA, with the added benefit of this being
+applicable to the "reconstruction" of values of PCRs other than the #10.
 
 ## Motivation
 
@@ -106,12 +109,15 @@ This section is for explicitly listing the motivation, goals and non-goals of
 this enhancement.  Describe why the change is important and the benefits to users.
 -->
 
-Its acceptable that someone may want to manually restart a server (or the server
-restarts as part of an automated work flow) while retaining the configuration
-set up during the intial "adding" of the agent to the verifier (`allowlist`,
-`tpm_policy`). They should not have to again add (or update) the verifier
-every time if there is not change in configuration or trust mapping (e.g software
-CA).
+In any modern datacenter, the usual scenario is one with literally hundreds of different types of nodes, 
+and simply "getting the contents of the boot aggregate (PCR 10) from a list of 
+well-known values" has shown itself to be unfeasible from an operational standpoint 
+(just to give some perspective: when nodes are netbooted, the value of every PCR1 
+is different as it encodes the MAC address of the NIC). Our experiments with the 
+"TPM 2.0 Pre-Boot Event log" demonstrated that, with a "recent enough" Kernel (e.g. 5.4.X), 
+and a "recent enough" version of tpm2-tools, we can access the contents of the aforementioned 
+log to re-create (or debug) the values of PCRs [0-9],14 without requiring a 
+pre-measurement (i.e., a "golden value").
 
 ### Goals
 
@@ -120,9 +126,10 @@ List the specific goals of the enhancement.  What is it trying to achieve?  How 
 know that this has succeeded?
 -->
 
-A user restarts the agent on a target node. When the agent is becomes active
-again the verifier proceeds to recommence monitoring the delegated measurements
-from when the target agent was first added to the verifier and registrar.
+- Add support for the `agents` to (conditionally) read and ship the TPM 2.0 event log
+- Add support on the `verifier` to replay the event log and reconstruct the values of PCR [0-9],14
+- Add support on the `tenant` CLI to specify an "event log desired state", which can then be 
+consumed by the `verifier` to attest a given event log
 
 ### Non-Goals
 
@@ -131,8 +138,11 @@ What is out of scope for this enhancement?  Listing non-goals helps to focus dis
 and make progress.
 -->
 
-Any sort of migration or fault redundancy (although both areas benefit from this
-change)
+- The "policy", which will take a given event log, a given "event log desired state" 
+and issue a pass/fail on the former based on the latter is outside of the scope of this
+enhacement. We will provide a way for a `verifier` to execute a generic policy, but the
+actual policy code will be provided by Keylime deployers/users.
+
 
 ## Proposal
 
@@ -144,40 +154,38 @@ implementation.  The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-A target machine is rebooted with no change in state (measured properties). This
-machine should not require “re adding” with the keylime tenant again.
+- The `tenant` CLI will provide a new option to indicate an "event log desired state"
+- The `agent`, upon being notified that a new "event log desired state" exists,
+will read the TPM2.0 pre-boot event log from /sys/kernel/security/tpm0/binary_bios_measurements
+and ship it back to the `verifier`
+- Whenever the `agent` reads the TPM2.0 pre-boot event log, it will also
+read (and ship to the `verifier`) the contents of PCRs [0-9], 14.
+- The verifier will be extended to support the replaying of the event log, 
+making sure it matches the contents of the aforementioned PCRs.
+- The verifier will also be extended to support the execution of generic
+python code, in the form of a "policy", which will read the contents of 
+the TPM2.0 Pre-Boot Event Log extracted by the agent, the contents of the 
+"event log desired state" (supplied via `tenant` CLI and stored on the database) 
+and then apply a pass/fail attestation test to the event log.
+- Test cases will be written that a very simple "policy", which will simply
+read the contents of the event log and attest it as legitimate, will be available
+by default. This means that the TPM2.0 Pre-Boot Event Log will be simply read on its
+entirety and that is can properly reconstruct PCRs [0-9],14. 
 
-Once the target node / agent returns to an online / reachable state, the
-verifier should proceed to recommence run time monitoring.
-
-A new tornado web handler will be created within the verifier to listen for
-requests that an agent will emit when it (re)starts.
-
-Code will be introduced within the agent that will perform a `POST` request to
-inform the verifier an agent has been (re)started. This in turn will cause the
-verifier to perform an `operational_state query` for the `UUID` of that agent
-and then proceed to perform run time integrity monitoring again.
-
-### User Stories (optional)
+### Notes/Constraints/Caveats (optional)
 
 <!--
-Detail the things that people will be able to do if this enhancement is implemented.
-Include as much detail as possible so that people can understand the "how" of
-the system.  The goal here is to make this feel real for users without getting
-bogged down.
+What are the caveats to the proposal?
+What are some important details that didn't come across above.
+Go in to as much detail as necessary here.
+This might be a good place to talk about core concepts and how they relate.
 -->
 
-For any given reason my server reboots. Keylime handles this event and provides
-trust monitoring once the server and agent are back online and can be reached
-by the verifier.
-
-Should the machines state have been tampered with during the offline period,
-Keylime will immediate fail the target node accordingly (or likewise show the
-machine is still in the expected trust state according to the delegated
-measurements)
-
-If I want to change measurements, I use the existing `update` command available
-in the Keylime Tenant CLI.
+- More complex policies will have to provided by the user, since these are
+very site-specific. For instance, we have an internal policy to check for 
+firmware versions of all hardware devices, an information which is recorded 
+on the TPM2.0 Pre-Boot Event Log, and thus we have special custom "desired state"
+policy which will not be made available as open-source.
 
 ### Risks and Mitigations
 
@@ -189,8 +197,12 @@ enhancement ecosystem.
 How will security be reviewed and by whom?
 -->
 
-We should be sure we do not introduce security risks and be mindful of future
-enhancements such as multi tenancy, auth and migration.
+- What is being proposed here is not dissimilar to what is already done with IMA 
+in the sense that:
+       - it is an optional capability, which should not interfere with the "regular" operation of KL 
+       - adds, to each interaction verifier<->agent interaction, no more than tens of KB (which is the total size of the "TPM2 Pre-Boot Event log"). 
+- While we do expect very little impact on KeyLime's scalability by adding this capability, it is 
+important to remember that we are constantly testing KL in a configuration with 5K nodes (with IMA), and can provide experimental evidence to back this hypothesis.
 
 ## Design Details
 
@@ -201,53 +213,9 @@ required) or even code snippets.  If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss them.
 -->
 
-Verifier Changes
-----------------
-
-A new tornado web handler is created within the verifier to listen for requests
-that an agent will emit when it starts. We will call this `/nudge` for now with
-a more suitable name agreed within this review.
-
-A new `operational_state` named `OFFLINE` will be created for when a machine
-becomes unreachable during a `GET_QUOTE` `operational_state`. This state will be
-set once the agent fails to respond during its retry query period set within
-the `keylime.conf` configuration file.
-
-A new database row will need to be introduced for the `OFFLINE`
-`operational_state`
-
-Agent Changes
--------------
-
-Code will be introduced to the agent that will perform a `POST` request
-`/nudge` to inform the verifier an agent has been (re)started. This in turn will
-instruct the verifier to perform an `operational_state` query for the `UUID` of
-the concerned agent. Should the `operational_state` be `OFFLINE`, it will
-change the `operational_state` to `GET_QUOTE` and proceed to (re)start continuous
-monitoring of the node with the previous set measurements (`whitelist`,
-`tpm_policy`)
-
-Registrar Changes
-------------------
-
-No immediate changes come to mind, but we should be mindful of this as the
-design evolves.
-
-Keylime TPM coms changes
-------------------------
-
-We will need to assess changes required within our TPM communications. For
-example the Agent calls `tpm_startup -c` and takes ownership of the tpm
-every time it starts. The AK handle is also flushed.
-
-We may need to consider having some sort of flag the agent queries to establish
-its already associated with a verifier.
-
-Rather than bootstrapping itself as a fresh agent, it instead retains its TPM
-set up and instead just instantiates its web service to allow rest API
-interactions with the verifier again. These interactions will be a continuum
-of the previous quote `GET` requests from the verifier, while retaining the
-existing root of trust already set up by the registrar (EKpub and AKPub).
+- The "event log desired state" will be provided, via `tenant` CLI, in JSON format, and it is up
+to the specific policy code to read, interpret and apply it to the received
+TPM2.0 Pre-Boot Event Log
 
 ### Test Plan
 
@@ -266,10 +234,9 @@ All code is expected to have adequate tests (eventually with coverage
 expectations).
 -->
 
-Functional tests will be needed to play out the user case of restarting a
-agent, persisting state and reestablishing measurements upon its restart.
-
-Unit tests will be needed to test the new `nudge` API functionality.
+- The simplest "always pass" code for the policy would allows us to make sure that TPM2.0 Pre-Boot Event Log
+can be extracted by the `agent`, sent to the `verifier` and that the replaying of such log will match the
+values on PCRs [0-9],14.
 
 ### Upgrade / Downgrade Strategy
 
@@ -280,8 +247,7 @@ this is in the test plan.
 Consider the following in developing an upgrade/downgrade strategy for this enhancement
 -->
 
-May need to consider impact of upgrading with an agent offline and then the new
-TPM code changes interacting with the TPM setup from the previous release.
+- This is an optional feature, and thoroughly backward compatible with current Keylime deployments.
 
 ## Drawbacks
 
@@ -289,7 +255,7 @@ TPM code changes interacting with the TPM setup from the previous release.
 Why should this enhancement _not_ be implemented?
 -->
 
-TBD
+- No known drawbacks.
 
 ## Alternatives
 
@@ -299,10 +265,7 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-We evolve the retry handler in the verifier to wait for indefinite periods
-instead of having a wake up API - this is hazardous as we risk bottle necks
-and need to consider managing more state (for example a node goes offline to
-never return).
+- No known alternatives.
 
 ## Infrastructure Needed (optional)
 
@@ -311,6 +274,4 @@ Use this section if you need things infrastructure related specific to your enha
 new subproject, repos requested, github webhook, changes to CI (travis).
 -->
 
-Some changes may be needed to travis CI, but not expected currently.
-
-No new repos required.
+- A relatively recent linux kernel (5.4.X) is needed to access the contents of the TPM2.0 Pre-Boot Event Log via securityfs

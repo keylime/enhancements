@@ -21,7 +21,7 @@ To get started with this template:
   start with the high-level sections and fill out details incrementally in
   subsequent PRs.
 -->
-# Persist verifier monitoring after agent restarts
+# enhancement-53: Agent-local Revocation Notification Mechanism
 
 <!--
 This is the title of your enhancement.  Keep it short, simple, and descriptive.  A good
@@ -69,7 +69,7 @@ Check these off as they are completed for the Release Team to track. These
 checklist items _must_ be updated for the enhancement to be released.
 -->
 
-- [ ] Enhancement issue in release milestone, which links to pull request in [keylime/enhancements]
+- [x] Enhancement issue in release milestone, which links to pull request in [keylime/enhancements]
 - [ ] Core members have approved the issue with the label `implementable`
 - [ ] Design details are appropriately documented
 - [ ] Test plan is in place
@@ -93,11 +93,15 @@ useful for a wide audience.
 A good summary is probably at least a paragraph in length.
 -->
 
-Should someone restart an agent based server or force an agent offline, the
-agent will no longer be monitored by the verifier. Upon starting the agent will
-just register with the registrar and IMA monitoring will cease.
+Keylime agent currently receives revocation notifications through
+ZeroMQ over TCP.  The agent connects to the revocation notifier
+service, typically run by the verifier, and waits for any revocation
+being sent.
 
-This behavior was originally discussed on the [keylime mailing list](https://keylime.groups.io/g/main/topic/q_is_an_agent_s_policy/72856684?p=,,,20,0,0,0::recentpostdate%2Fsticky,,,20,2,0,72856684)
+While this setup works well in practice, it is not ideal in certain
+deployment scenarios such as IoT.  This enhancement provides an
+alternative revocation notification mechanism and the configuration
+options.
 
 ## Motivation
 
@@ -106,12 +110,19 @@ This section is for explicitly listing the motivation, goals and non-goals of
 this enhancement.  Describe why the change is important and the benefits to users.
 -->
 
-Its acceptable that someone may want to manually restart a server (or the server
-restarts as part of an automated work flow) while retaining the configuration
-set up during the intial "adding" of the agent to the verifier (`allowlist`,
-`tpm_policy`). They should not have to again add (or update) the verifier
-every time if there is not change in configuration or trust mapping (e.g software
-CA).
+### Dependencies of ZeroMQ implementations
+
+The reference implemention of ZeroMQ ([libzmq]) has quite a few
+run-time dependencies including libsodium (for cryptography) and
+openpgm (for multicast), which are not always available in restricted
+environment.
+
+While revocation notification can be turned off at run-time, this is
+particularly problematic for Rust agent, because whether the ZeroMQ
+feature is supported needs to be determined at build time.  Although
+there is a pure-Rust rewrite of ZeroMQ ([zmq.rs]) which can be
+configured without such dependencies, it depends on a newer async
+runtime (tokio 1.x) incompatible with the one used by the Rust agent.
 
 ### Goals
 
@@ -119,10 +130,8 @@ CA).
 List the specific goals of the enhancement.  What is it trying to achieve?  How will we
 know that this has succeeded?
 -->
-
-A user restarts the agent on a target node. When the agent is becomes active
-again the verifier proceeds to recommence monitoring the delegated measurements
-from when the target agent was first added to the verifier and registrar.
+ * Add support for the agent to listen on revocation notification without ZeroMQ transport
+ * Add support for the verifier to send out revocation notification without ZeroMQ transport
 
 ### Non-Goals
 
@@ -130,9 +139,8 @@ from when the target agent was first added to the verifier and registrar.
 What is out of scope for this enhancement?  Listing non-goals helps to focus discussion
 and make progress.
 -->
-
-Any sort of migration or fault redundancy (although both areas benefit from this
-change)
+ * Secure execution of revocation actions by the agent (while it is desired)
+ * Moving Keylime to a push-only model
 
 ## Proposal
 
@@ -144,19 +152,10 @@ implementation.  The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-A target machine is rebooted with no change in state (measured properties). This
-machine should not require “re adding” with the keylime tenant again.
-
-Once the target node / agent returns to an online / reachable state, the
-verifier should proceed to recommence run time monitoring.
-
-A new tornado web handler will be created within the verifier to listen for
-requests that an agent will emit when it (re)starts.
-
-Code will be introduced within the agent that will perform a `POST` request to
-inform the verifier an agent has been (re)started. This in turn will cause the
-verifier to perform an `operational_state query` for the `UUID` of that agent
-and then proceed to perform run time integrity monitoring again.
+This enhancement proposal adds a new revocation notification mechanism
+natively integrated into the agent protocol, as well as the supporting
+configuration options to allow the verifier to use multiple revocation
+notification mechanisms together.
 
 ### User Stories (optional)
 
@@ -167,17 +166,23 @@ the system.  The goal here is to make this feel real for users without getting
 bogged down.
 -->
 
-For any given reason my server reboots. Keylime handles this event and provides
-trust monitoring once the server and agent are back online and can be reached
-by the verifier.
+#### Story 1
+ * Verifier has `revocation_notifiers` with the value "agent" configured
+ * Agent registers itself with the registrar
+ * User adds agent with `keylime_tenant -c add -u AGENT_ID`
+ * Agent is added to the verifier
+ * Verifier sends revocation notification to the agent through the REST API
+ * Agent executes revocation actions
 
-Should the machines state have been tampered with during the offline period,
-Keylime will immediate fail the target node accordingly (or likewise show the
-machine is still in the expected trust state according to the delegated
-measurements)
+### Notes/Constraints/Caveats (optional)
 
-If I want to change measurements, I use the existing `update` command available
-in the Keylime Tenant CLI.
+<!--
+What are the caveats to the proposal?
+What are some important details that didn't come across above.
+Go in to as much detail as necessary here.
+This might be a good place to talk about core concepts and how they relate.
+-->
+ * The API version needs to be bumped to a new minor version, as this change falls under the "Adding a new API endpoint would be a minor version bump as previous clients would not be using it" [criteria](https://github.com/keylime/enhancements/blob/master/45_api_versioning.md#design-details).
 
 ### Risks and Mitigations
 
@@ -189,8 +194,10 @@ enhancement ecosystem.
 How will security be reviewed and by whom?
 -->
 
-We should be sure we do not introduce security risks and be mindful of future
-enhancements such as multi tenancy, auth and migration.
+The attack surface on the agent protocol slightly increases as the new
+REST resource (`/v1.0/notifications/revocation`) is added, though the
+messages are digitally signed and cannot be exploited as long as the
+agent is properly implemented/configured.
 
 ## Design Details
 
@@ -201,53 +208,31 @@ required) or even code snippets.  If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss them.
 -->
 
-Verifier Changes
-----------------
+The REST API of the agent will export a new resource at
+`/v1.0/notifications/revocation`, which can be accessed with a POST
+method.  The request body is a JSON object with the following properties:
 
-A new tornado web handler is created within the verifier to listen for requests
-that an agent will emit when it starts. We will call this `/nudge` for now with
-a more suitable name agreed within this review.
+- `msg` (_string_) - argument passed to the revocation actions
+- `signature` (_string_) - signature calculated over `msg`, using RSA-PSS with SHA-256 as the hash algorithm and the maximum salt length for the RSA key, in base64 format
 
-A new `operational_state` named `OFFLINE` will be created for when a machine
-becomes unreachable during a `GET_QUOTE` `operational_state`. This state will be
-set once the agent fails to respond during its retry query period set within
-the `keylime.conf` configuration file.
+At the agent side, the method and the invocation of the revocation
+actions should be implemented as idempotent, so that it should not
+matter how many times the method is called.
 
-A new database row will need to be introduced for the `OFFLINE`
-`operational_state`
+In the `cloud_verifier` section of the configuration file, a new
+option `revocation_notifiers` is added to select notification
+mechanisms that the verifier uses.  The option takes a list of strings
+and the possible values are `zeromq`, `webhook`, and `agent`.
 
-Agent Changes
--------------
+The former two have the same effect as the current
+`revocation_notifier` and `revocation_notifier_webhook`, while the
+latter (`agent`) enables push notification to the agent, based on the
+REST API described above.
 
-Code will be introduced to the agent that will perform a `POST` request
-`/nudge` to inform the verifier an agent has been (re)started. This in turn will
-instruct the verifier to perform an `operational_state` query for the `UUID` of
-the concerned agent. Should the `operational_state` be `OFFLINE`, it will
-change the `operational_state` to `GET_QUOTE` and proceed to (re)start continuous
-monitoring of the node with the previous set measurements (`whitelist`,
-`tpm_policy`)
-
-Registrar Changes
-------------------
-
-No immediate changes come to mind, but we should be mindful of this as the
-design evolves.
-
-Keylime TPM coms changes
-------------------------
-
-We will need to assess changes required within our TPM communications. For
-example the Agent calls `tpm_startup -c` and takes ownership of the tpm
-every time it starts. The AK handle is also flushed.
-
-We may need to consider having some sort of flag the agent queries to establish
-its already associated with a verifier.
-
-Rather than bootstrapping itself as a fresh agent, it instead retains its TPM
-set up and instead just instantiates its web service to allow rest API
-interactions with the verifier again. These interactions will be a continuum
-of the previous quote `GET` requests from the verifier, while retaining the
-existing root of trust already set up by the registrar (EKpub and AKPub).
+The `revocation_notifier` and `revocation_notifier_webhook` options
+are deprecated and mutually exclusive with `revocation_notifiers`. The
+new code supporting this enhancement should put a warning in the log
+that the options are deprecated and suggest the required changes.
 
 ### Test Plan
 
@@ -266,10 +251,7 @@ All code is expected to have adequate tests (eventually with coverage
 expectations).
 -->
 
-Functional tests will be needed to play out the user case of restarting a
-agent, persisting state and reestablishing measurements upon its restart.
-
-Unit tests will be needed to test the new `nudge` API functionality.
+ * Extend the `test_restful.py` tests to check for the new protocol.
 
 ### Upgrade / Downgrade Strategy
 
@@ -279,17 +261,36 @@ this is in the test plan.
 
 Consider the following in developing an upgrade/downgrade strategy for this enhancement
 -->
+To upgrade/downgrade, the configuration file needs modification if it
+makes use of the new configuration option (`revocation_notifiers`). A
+helper script could be provided to ease the migration
 
-May need to consider impact of upgrading with an agent offline and then the new
-TPM code changes interacting with the TPM setup from the previous release.
+### Dependencie requirements
+
+<!--
+If your new change requires new dependencies, please outline and demonstrate that your selected dependency 
+is well maintained and packaged in Keylime's supported Operating Systems (currently Debian Stable
+and as of time writing Fedora 32/33). 
+
+During code implementation you will also be expected to add the package to CI , the keylime ansible role and 
+keylimes main installer (`keylime/installers.sh`).
+
+If the package is not available in the supported Operated systems, the PR will not be merged into master. 
+
+Adding the package in `requirements.txt` is not sufficent for master which is where we tag releases from. 
+
+You may however be able to work within an experimental branch until a package is made available. If this is
+the case, please outline it in this enhancement.
+
+-->
+No additional dependencies should be required.
 
 ## Drawbacks
 
 <!--
 Why should this enhancement _not_ be implemented?
 -->
-
-TBD
+No drawbacks are known of.
 
 ## Alternatives
 
@@ -298,11 +299,10 @@ What other approaches did you consider and why did you rule them out?  These do
 not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
-
-We evolve the retry handler in the verifier to wait for indefinite periods
-instead of having a wake up API - this is hazardous as we risk bottle necks
-and need to consider managing more state (for example a node goes offline to
-never return).
+ * It is possible to use other asynchronous messaging technology or
+   design custom protocol without imposing dependencies.  However, the
+   agent is already listening on a REST endpoint, reusing the agent
+   protocol would be straightforward.
 
 ## Infrastructure Needed (optional)
 
@@ -310,7 +310,7 @@ never return).
 Use this section if you need things infrastructure related specific to your enhancement.  Examples include a
 new subproject, repos requested, github webhook, changes to CI (travis).
 -->
+No infrastructure changes needed.
 
-Some changes may be needed to travis CI, but not expected currently.
-
-No new repos required.
+[libzmq]: https://github.com/zeromq/libzmq/
+[zmq.rs]: https://github.com/zeromq/zmq.rs/
