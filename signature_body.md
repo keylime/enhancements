@@ -114,11 +114,10 @@ this enhancement.  Describe why the change is important and the benefits to user
 ### Proposal
 
 User produces a cryptographic signature by 'passing over' the body of an allow/exclude
-list. The signature and public key (or X509 cert) are then attached to the allowlist.
+list. The signature and public key id (sha256 hash of pubKey), or an X509 cert are then attached to the allowlist.
 
 The verifier upon discovery of a `"signed"` and `"signatures"` keys, will validate
-the signed section, using the keyid (base64 encoded pub key / cert) and then pass the signed
-body to IMA.
+the signed section, using the keyid value and then pass the signed body to IMA.
 
 ```json
 {
@@ -157,9 +156,9 @@ body to IMA.
 
 The signatures section lists two json keys:
 
-* keyid: The keyid can be one of three. 
+* keyid: The keyid can be one of two. 
 ** A sha256 hash of a public key (therefore acting as a map). This allows an out-of-band public key
-** A base64 encoded X509 v3 certificate in PEM format. This is in-band as it can be chained to CA for indenity.
+** A base64 encoded X509 v3 certificate in PEM format. This is in-band and can be chained to CA for indenity.
 
 #### signed
 
@@ -187,7 +186,7 @@ the system.  The goal here is to make this feel real for users without getting
 bogged down.
 -->
 
-I as a user wish to have attached signatures.
+I as a user wishing to have attached signatures.
 
 #### Story 1
 
