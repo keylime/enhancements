@@ -97,8 +97,9 @@ A good summary is probably at least a paragraph in length.
 Provide Keylime with the ability to store all the required information to
 perform a full attestation, in a persistent external time-series datastore.
 This should also include some proof that a given AIK created on a TPM by an
-`agent` was indeed tied to a given EK, a process that is done by the
-`registrar` and whose responsibility is to store it on a tamper-resistant
+`agent` was indeed tied to a given EK (from the TPM locate at the node where
+it was running). This AIK/EK association process is done by the `registrar`
+it will its responsibility to store a record of such association on a tamper-resistant
 metadatastore (e.g. transparency log)
 
 ## Motivation
@@ -111,10 +112,10 @@ this enhancement.  Describe why the change is important and the benefits to user
 The main motivation for adding this functionality is to give auditors and other
 compliance officers the ability to answer, with a proper degree of certainty
 and trust the following question: did node N had its software stack fully
-attested at date T?  Being date "T" a point time that could be well in the
-past, we cannot rely on the accessibility (or even the existence) of the given
-node. Furthermore we cannot even rely on the accessibility (or even the
-existence) of the server-side components of the Keylime cluster (i.e.,
+attested at date D?  Being date "D" a point time that could be well in the
+past, we cannot rely on the accessibility to (or even the existence of) the given
+node. Furthermore we cannot even rely on the accessibility to (or even the
+existence of) the server-side components of the Keylime cluster (i.e.,
 `registrar` and `verifier`) and thus need to design with these boundary
 conditions in mind.  
 
@@ -128,6 +129,8 @@ know that this has succeeded?
 - Add functionality on the `registrar` to record (in a tamper-resistant
   transparency log) the association between the EK and AIK (i.e.
 `tpm2_makecredential`)
+- Add functionality on the `registrar` to record (in a time-series persistent
+datastore) all the information required to check the association of EK and AIK
 - Add functionality on the `verifier` to record (in a time-series persistent
   datastore) all the information needed to perform attestation standlone (i.e.,
 quotes and MB/IMA logs)
@@ -144,8 +147,8 @@ and make progress.
 
 - The interaction between the time-series persistent datastore and
   tamper-resistant transparency log will be done by keylime user/operator.
-Inside the core Keylime, a "plugin" architecture will be adopted (very much
-like the "policies" for Measured Boot) and the implementation details of the
+Inside the core Keylime, a "plugin" architecture will be adopted (similar
+to the "policies" for Measured Boot) and the implementation details of the
 code which will interact with such stores are outside of the scope.
 
 
@@ -173,14 +176,17 @@ every time an `agent` is restarted on Keylime.
 - The `verifier` will be modified to take the `json_response` (python
   dictionary) from the `agent` - which will include both quotes and logs (MB
 and IMA) - `agent` data (python dictionary) from the SQL database (internal to
-Keylime) and the `agentAttestState` python object, combine it into a single
-record and store it on the time-series persistent datastore. 
+Keylime), combine it into a single record and store it on a time-series datastor.
 - Two pieces of information: the name of a python module to be dynamically
   imported (which will contain code used to interact with these new proposed
 stores) and the connection paramaters (for these new proposed stores) will be
 supplied by the user as two new parameters under `[cloud_verifier]` and
 `[registrar]` section: `persistent_store_import` and
 `persistent_store_connection_data`)
+- A new API is proposed with the following operations: bulk_record_retrieval,
+record_read, record_create, record_sign, record_check. The `bulk_record_retrieval`
+call will be the only one which will interact with different datastores, in a
+"plugin" architecture.
 - A new CLI interface - `keylime_attest` - will contact both the transparency
   log and the time-series datastore, get a list of AIKs proven to be associated
 with an EK, and then call the same code used by the `verifier` (i.e.,
@@ -235,12 +241,15 @@ proposal will be implemented, this is the place to discuss them.
 - The first PR will provide the "persistent datastore" plugin capability, to be
   called from with both `registrar` and `verifier` code. It will include a
 default, "null operation" and all the required changes into `config.py` and
-`keylime.conf`
+`keylime.conf`. The plan is to use the `[general]` section add a new entry,
+`persistent_store_connection_data`, where a JSON object will be used to provide
+all the configuration parameters required to access both the tamper-resistant 
+transparency log and time-series persistent datastore.
 - A second PR will give the `verifier` the ability to extract and store "TPM
   clock information". This might include changes on the database schema.
-- A third PR will provide a CLI utility to perform offline attestation ### Test
-  Plan
+- A third PR will provide a CLI utility to perform offline attestation 
 
+### Test Plan
 <!--
 **Note:** *Not required until targeted at a release.*
 
@@ -299,4 +308,5 @@ Use this section if you need things infrastructure related specific to your enha
 new subproject, repos requested, github webhook, changes to CI (travis).
 -->
 
-- Some sort of external time-series datastore and tamper-resistant transparency log will be needed in order to enable this feature. 
+- Some sort of external time-series datastore and tamper-resistant transparency
+  log will be needed in order to enable this feature. 
