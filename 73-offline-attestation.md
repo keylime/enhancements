@@ -21,7 +21,7 @@ To get started with this template:
   start with the high-level sections and fill out details incrementally in
   subsequent PRs.
 -->
-# enhancement-#73: Durable (Offline) Attestation suppor in Keylime
+# enhancement-#73: Durable (Offline) Attestation support in Keylime
 
 <!--
 This is the title of your enhancement.  Keep it short, simple, and descriptive.  A good
@@ -97,11 +97,17 @@ A good summary is probably at least a paragraph in length.
 The goal of this enhancement is to provide Keylime with the ability to store 
 all the required information to perform a full attestation, in a persistent 
 external time-series like datastore.
-This should also include some proof that a given AIK created on a TPM by an
-`agent` was indeed tied to a given EK (from the TPM located at the node where
-it was running). This AIK/EK association process is done by the `registrar`,
-and it will be its responsibility to store a record of such association on 
-a tamper-resistant metadatastore (e.g. transparency log)
+This should also include some proof that a given AK (still referred as "AIK"
+inside Keylime) created on a TPM by an `agent` was indeed tied to a given EK
+ (from the TPM located at the node where it was running). This AK/EK 
+association process is done by the `registrar`, and it will be its 
+responsibility to store a record of such association on a tamper-resistant 
+metadatastore (e.g. transparency log).
+
+The main reason for two different kinds of stores is the unequal nature of 
+its contents. While the time-series like datastore will hold actual objects
+(in our case, JSON contents), the tamper-resistant metadastore will hold 
+records of signatures of such objects.
 
 ## Motivation
 
@@ -128,11 +134,11 @@ know that this has succeeded?
 -->
 
 - Add functionality on the `registrar` to record (in a tamper-resistant
-  transparency log) the association between the EK and AIK (i.e.
+  transparency log) the association between the EK and AK (i.e.
 `tpm2_makecredential`).
 - Add functionality on the `registrar` to record (in a time-series like 
 persistent datastore) all the information required to check the association
- of EK and AIK.
+ of EK and AK.
 - Add functionality on the `verifier` to record (in a time-series like 
 persistent datastore) all the information needed to perform attestation
  standlone and offline (i.e., quotes and MB/IMA logs).
@@ -173,27 +179,28 @@ nitty-gritty.
 -->
 
 - The `registrar` will be modified to, upon initial `agent` registration -
-  which includes the execution of `tpm2_makecredential` - record the EK, AIK
+  which includes the execution of `tpm2_makecredential` - record the EK, AK
 into a JSON file, sign it (using the private key generated as part of the
 certificates for mTLS interaction with both `tenant` and `registrar`) and then
 make a record of it on a tamper-resistant transparency log (e.g., Rekor). In
 addition to that, it will store the JSON file, the signature, and the public
 key on the time-series like persistent datastore. This should allow an external
 component/user to check, provided that there is trust on the `registrar`, that
-a particular AIK is indeed tied to a particular EK. The reason for having this
-data stored into a time-series is due to the fact that AIKs are regenereated
+a particular AK is indeed tied to a particular EK. The reason for having this
+data stored into a time-series is due to the fact that AKs are regenereated
 every time an `agent` is restarted on Keylime.
 - The `verifier` will be modified to take the `json_response` (python
   dictionary) from the `agent` - which will include both TPM quotes and logs (MB
 and IMA) - plus `agent` data (python dictionary which includes all columns stored)
 from the SQL database, internal to Keylime), combine it into a single (python 
-dictionary record) and store it on a time-series datastore.
+dictionary serialized into JSON contents) record and store it on a 
+time-series like datastore.
 - The `verifier` will also be modified to extract the "TPM clock information"
  (i.e, "clock", "resetCount", "restartCount", "safe") from the quote 
 (part of `json_response`) and make it available on this same python
 dictionary. The `verifier` will then use this information to compare this
  timestamp with the "previous" one (in the case of "online" Keylime 
-attestation, the one stored on the database, as part of the `agent` data
+attestation, the one stored on the SQL database, as part of the `agent` data
  python dictionary) in order to decide if a quote is being replayed. This 
 mechanism is not strictly necessary for the online attestation (given trust
 in the `verifier`), but will become crucial for offline attestation, where 
@@ -202,10 +209,11 @@ by an attacker.
 - Three new parameters: the name of a python module to be dynamically
   imported (which will contain code used to interact with these new proposed
 stores) and the URLs for these these new proposed stores will be
-supplied by the user as parameters under the `[general]` section: 
-`durable_attestation_import`, `persistent_store_url` and 
-`transparency_log_url`. The URL format is similar to the one already
-used to establish connectivity to SQL databases within keylime.
+supplied by the user as parameters under `[cloud_verifier]` and 
+`[registrar]` sections : `durable_attestation_import`, 
+`persistent_store_url` and `transparency_log_url`. The URL format is
+ similar to the one already used to establish connectivity to SQL 
+databases within Keylime.
 - First additional tunable: an user can specify, via an attribute on 
 `keylime.conf` (`[cloud_verifier]` section), additional attributes of the
  `agent` python dictionary to be signed by the `verifier`, being this 
@@ -218,10 +226,11 @@ transparency log. As it is the case with `registrar`, in this context
 (using `openssl`) and record an entry on the tamper-resistant transparency
 log".
 - Second additional tunable: an user can specifiy, via an attribute on
- `keylime.conf` (under `[general]` section), a Time Stamp Authority URL
-(`time_stamp_authority_url`), and any signature done by either the 
-`registrar` or the `verfier` will be timestamped (being the timestamp 
-request also stored on the time-series like persistent store).
+ `keylime.conf` (under `[cloud_verifier]` and `[registrar]` sections), 
+a Time Stamp Authority URL (`time_stamp_authority_url`), and any 
+signature done by either the `registrar` or the `verfier` will be 
+timestamped (being the timestamp request also stored on the 
+time-series like persistent store).
 - A new API is proposed with the following operations: *bulk_record_retrieval*,
 *record_read*, *record_create*. The *bulk_record_retrieval* and *record_create* 
 calls will be the only ones which will interact with different datastores, in a
@@ -230,7 +239,7 @@ defined: *record_sign*, *record_timestamp* and *record_check*. The first
 two are called within *record_create* and the latter is called from
 within *record_read*. 
 - A new CLI interface - `keylime_attest` - will contact both the transparency
-  log and the time-series like datastore, get a list of AIKs proven to be associated
+  log and the time-series like datastore, get a list of AKs proven to be associated
 with an EK, and then call the same code used by the `verifier` (i.e.,
 `cloud_verifier_common.process_quote_response`) to perform a series of point in
 time attestation on all records retrieved from the persistent datastore.
@@ -260,7 +269,7 @@ How will security be reviewed and by whom?
 
 - The first key security aspect here is to convince ourselves (and others) that the
   record generated by the `registrar` to indicate the association between EK
-and AIK is enough. Once this is done, offline attestation has basically the
+and AK is enough. Once this is done, offline attestation has basically the
 same level of security of the online attestation (which was already evaluated)
 as it uses the very same code base.
 - The second key security aspect is the level of trust one needs to have on the
