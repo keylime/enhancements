@@ -92,7 +92,7 @@ useful for a wide audience.
 
 A good summary is probably at least a paragraph in length.
 -->
-This enhancement proposes leveraging the IDevID and IAK keys/certificates to register each device at the registrar service. This can be used for later enabling the generation and use of LDevID and LAKs, as can also allow attestion based on the IAK instead of using an ephemeral AK (Attestation key) if desired. IDevID is an industry standard identity which is issued by manufacturers when the device is built.
+This enhancement proposes leveraging the IDevID and IAK keys/certificates to register each device at the registrar service and enabling the generation and use of LDevID and LAKs. IDevID is an industry standard identity which is issued by manufacturers when the device is built.
 
 ## Motivation
 
@@ -113,9 +113,8 @@ List the specific goals of the enhancement.  What is it trying to achieve?  How 
 know that this has succeeded?
 -->
  * Use IDevID and IAK keys/certificates to register each device at the registrar service
- * Enable later use of this information for generation of LDevID and LAKs
- * If desired, enable attestation based on the IAK instead of using an ephemeral AK (Attestation key)
-
+ * Generation of LDevID and LAKs
+ 
 ### Non-Goals
 
 <!--
@@ -123,8 +122,8 @@ What is out of scope for this enhancement?  Listing non-goals helps to focus dis
 and make progress.
 -->
  At least at this first step:
- * mTLS usage scenario (at first)
- * Generate LDevID and LAKs
+ * mTLS usage scenario 
+ 
 
 ## Proposal
 
@@ -191,9 +190,9 @@ A potential workflow is presented below:
 2. Get endorsement certificate from TPM NV index and EK public key (done at create_ek)
 3. Regeneration of IAK and IDevID possible info (create create_iak and create_idevid routines)
 4. Load the IDevID and IAK and IDevID certificates from a given local path and send them along with the rest of the attestation/measured data to the registrar service
-5. Create an ephemeral AK
-6. Encode the necessary data and send it to the registrar service (modify the method do_register_agent to support the new parameters regarding IAK and IDevID). 
-7. Receive the challenge to prove that is actually has the AK, IDevID, IAK. 
+5. Create keys for LAK and LDevID based on the IAK.
+6. Encode the necessary data and send it to the registrar service (modify the method do_register_agent to support the new parameters regarding DevID and AK keys). 
+7. Receive the challenge to prove that is actually has the DevID and AK keys. 
 8. Sends challenge response back to the registrar service.
 9. The agent gets its UUID in case of a successful registering process.
 
@@ -201,9 +200,10 @@ A potential workflow is presented below:
 1. The main endpoints here are do_register_agent() and do_activate_agent() invoked by the agent.
 2. Decode data and parse certificates. This implies modifying the method doRegisterAgent to support new parameters regarding IAK and IDevID. This method exercises a POST to /v{api_version}/agents/{agent_id} at registrar_common.py do_POST method.  
 3. Verify IDevID certificate chain of trust + IAK certificate chain of trust
-4. Create a challenge to send to the agent
+4. Create a challenge to send to the agent for prove the possession of the private keys.
 5. Receive the challenge response and process
-6. Commit data to the local Keylime database, the necessary fields regarding IAK and IDevID needs to be included there.  
+6. Generate the certificates for LAK and LDevID keys with the owner/companie CAs. 
+6. Commit data to the local Keylime database, the necessary fields regarding keys and certificates to be included there.  
 7. Activate the agent. This implies on modifying the method do_activate_agent at keylime\keylime\registrar_client.py to support new parameters regarding IAK and IDevID. This method exercises a PUT to /v{api_version}/agents/{agent_id}/activate at registrar_common.py do_PUT method.  
 
 ### Attestation from the verifier perspective after the registration process
