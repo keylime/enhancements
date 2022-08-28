@@ -216,7 +216,7 @@ The following table summarizes the changes for the verifier TLS configuration.
 | `private_key_pw`           | (None, removed)     | Removed support for password protected private keys |
 | `check_client_cert`        | (None, removed)     | Use `all` keyword in `trusted_client_ca`|
 | `agent_mtls_cert_enabled`  | `enable_agent_mtls` | |
-| `agent_mtls_cert`          | (None, removed)     | Add the CA of the agent's `server_cert` to `trusted_server_ca`
+| `agent_mtls_cert`          | `client_cert`       | Add the CA of the agent's `server_cert` to `trusted_server_ca`
 | `agent_mtls_private_key`   | `client_key`        | |
 | `agent_mtls_private_key_pw`| (None, removed)     | Removed support for password protected private keys |
 
@@ -373,8 +373,8 @@ The following table lists the old options and the corresponding new options.
 | -------- | -------- | ---------- |
 | New | (None) | `version`  |
 | New | (None) | `tls_dir`|
-| Yes | `cloud_agent_ip`       | `ip`       |
-| Yes | `cloud_agent_port`     | `port`           |
+| Yes | `cloudagent_ip`       | `ip`       |
+| Yes | `cloudagent_port`     | `port`           |
 | Yes | `agent_contact_ip` (optional)|`contact_ip` |
 | Yes | `agent_contact_port` (optional) | `contact_port`|
 | No  | `registrar_ip` | `registrar_ip`|
@@ -478,9 +478,9 @@ The following table lists the old options and the corresponding new options.
 | Changed? | Old option in `[cloud_verifier]` | New option in `verifier.conf` |
 | -------- | -------- | ---------- |
 | New | (None) | `version` |
-| Yes | `cloud_verifier_id` | `uuid` |
-| Yes | `cloud_verifier_ip` | `ip` |
-| Yes | `cloud_verifier_port` | `port` |
+| Yes | `cloudverifier_id` | `uuid` |
+| Yes | `cloudverifier_ip` | `ip` |
+| Yes | `cloudverifier_port` | `port` |
 | No  | `registrar_ip` | `registrar_ip`|
 | No  | `registrar_port` | `registrar_port`|
 | No  | `tls_dir` | `tls_dir` |
@@ -490,7 +490,7 @@ The following table lists the old options and the corresponding new options.
 | Yes | `private_key_pw` | (None, removed) |
 | Yes | `check_client_cert` | (None, removed) |
 | Yes | `agent_mtls_cert_enabled` | `enable_agent_mtls` |
-| Yes | `agent_mtls_cert` | (None, removed) |
+| Yes | `agent_mtls_cert` | `client_cert` |
 | Yes | `agent_mtls_private_key` | `client_key` |
 | Yes | `agent_mtls_private_key_pw` | (None, removed) |
 | No  | `database_url` | `database_url` |
@@ -582,8 +582,8 @@ The following table lists the old options and the corresponding new options.
 | Changed? | Old option in `[tenant]` | New option in `tenant.conf` |
 | -------- | -------- | ---------- |
 | New | (None) | `version` |
-| Yes | `cloud_verifier_ip` | `verifier_ip` |
-| Yes | `cloud_verifier_port` | `verifier_port` |
+| Yes | `cloudverifier_ip` | `verifier_ip` |
+| Yes | `cloudverifier_port` | `verifier_port` |
 | No  | `registrar_ip` | `registrar_ip` |
 | No  | `registrar_port` | `registrar_port` |
 | No  | `tls_dir` | `tls_dir` |
