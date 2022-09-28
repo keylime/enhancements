@@ -21,7 +21,7 @@ To get started with this template:
   start with the high-level sections and fill out details incrementally in
   subsequent PRs.
 -->
-# enhancement-86: Additional IMA policy hash metadata
+# enhancement-86: Additional IMA policy file metadata
 
 <!--
 This is the title of your enhancement.  Keep it short, simple, and descriptive.  A good
@@ -93,7 +93,7 @@ useful for a wide audience.
 A good summary is probably at least a paragraph in length.
 -->
 
-This enhancement proposes a new field within Keylime's IMA policy format allowing for additional metadata to be specified for particular file hashes. This metadata could be used to enforce more stringent checks for particular files on the Keylime verifier or agent.
+This enhancement proposes a new field within Keylime's IMA policy format allowing for additional metadata to be specified for particular file patterns. This metadata could be used to enforce more stringent checks for particular files on the Keylime verifier or agent.
 
 ## Motivation
 
@@ -136,7 +136,7 @@ implementation.  The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-Keylime's IMA policy format should contain an additional field, which would contain a JSON-formatted dictionary of key-value pairs (with digests as keys) that could later be used by Keylime to implement additional checks on the verifier. These additional values could range in type from boolean all the way to base64-encoded public keys or signatures if needed.
+Keylime's IMA policy format should contain an additional field, which would contain a JSON-formatted dictionary of key-value pairs (with file paths as keys) that could later be used by Keylime to implement additional checks on the verifier. These additional values could range in type from boolean all the way to base64-encoded public keys or signatures if needed.
 
 ### User Stories (optional)
 
@@ -155,17 +155,6 @@ I am a system administrator looking to attest the validity and provenance of a m
 - a valid signature within that transparency log that attests to a specific developer's identity
 
 in order to run on my agent-attested machine. Some future version of Keylime would consume this metadata and carry out the required checks.
-
-#### Story 2
-
-### Notes/Constraints/Caveats (optional)
-
-<!--
-What are the caveats to the proposal?
-What are some important details that didn't come across above.
-Go in to as much detail as necessary here.
-This might be a good place to talk about core concepts and how they relate.
--->
 
 ### Risks and Mitigations
 
@@ -190,102 +179,110 @@ An example Keylime policy (after the implementation of the IMA policy enhancemen
 
 ```json
 {
-    "signatures": [
-        {
-          "keyid": <KEYID>,
-          "keytype" : <KEYTYPE>,
-          "sig": <SIGNATURE>
-        }
-    ],
-    "signed": {
-        "meta": {
-            "version": 0
-        },
-        "release": 6.5.0,
-        "digests": {
-            "/root/hello.txt": ["a4dc309f..."]
-        },
-        "excludes": [],
-        "keyrings": {},
-        "ima": {
-            "ignored_keyrings": [],
-            "log_hash_alg": "xxx"
-        },
-        "ima-buf": {},
-        "verification-keys": []
-    }
+    "meta": {
+        "version": 0
+    },
+    "release": 6.5.0,
+    "digests": {
+        "/root/hello.txt": ["a4dc309f..."]
+    },
+    "excludes": [],
+    "keyrings": {},
+    "ima": {
+        "ignored_keyrings": [],
+        "log_hash_alg": "xxx"
+    },
+    "ima-buf": {},
+    "verification-keys": []
 }
 ```
 
-With this enhancement, an additional field called `digest_metadata` would be present in the `signed` body, alongside `digests` and `excludes` etc:
+There are several different ways this proposal could be implemented.
+
+### Option 1: Additional `file-metadata` field
+
+An additional field called `file-metadata` would be present in the `signed` body, alongside `digests` and `excludes` etc:
 
 ```json
 {
-    "signatures": [
-        {
-          "keyid": <KEYID>,
-          "keytype" : <KEYTYPE>,
-          "sig": <SIGNATURE>
-        }
-    ],
-    "signed": {
-        "meta": {
-            "version": 0
-        },
-        "release": 6.5.0,
-        "digests": {
-            "/root/hello.txt": ["a4dc309f..."]
-        },
-        "excludes": [],
-        "digest_metadata": {},
-        "keyrings": {},
-        "ima": {
-            "ignored_keyrings": [],
-            "log_hash_alg": "xxx"
-        },
-        "ima-buf": {},
-        "verification-keys": []
-    }
+    "meta": {
+        "version": 0
+    },
+    "release": 6.5.0,
+    "digests": {
+        "/root/hello.txt": ["a4dc309f..."]
+    },
+    "excludes": [],
+    "file-metadata": {},
+    "keyrings": {},
+    "ima": {
+        "ignored_keyrings": [],
+        "log_hash_alg": "xxx"
+    },
+    "ima-buf": {},
+    "verification-keys": []
 }
 ```
 
-This could then be populated with key-value pairs of hashes and metadata about them. For example, to specify that the Keylime verifier should perform an inclusion proof against hash `a4dc309f...`:
+This could then be populated with key-value pairs of hashes and metadata about them. For example, to specify that the Keylime verifier should perform an inclusion proof against file `/root/hello.txt`:
 
 ```json
 {
-    "signatures": [
-        {
-          "keyid": <KEYID>,
-          "keytype" : <KEYTYPE>,
-          "sig": <SIGNATURE>
-        }
-    ],
-    "signed": {
-        "meta": {
-            "version": 0
+    "meta": {
+        "version": 0
+    },
+    "release": 6.5.0,
+    "digests": {
+        "/root/hello.txt": ["a4dc309f..."]
+    },
+    "excludes": [],
+    "file-metadata": {
+        "/root/hello.txt": {
+            "transparency_log_inclusion_proof": true,
         },
-        "release": 6.5.0,
-        "digests": {
-            "/root/hello.txt": ["a4dc309f..."]
-        },
-        "excludes": [],
-        "digest_metadata": {
-            "a4dc309f...": {
-                "transparency_log_inclusion_proof": true,
-            },
-        },
-        "keyrings": {},
-        "ima": {
-            "ignored_keyrings": [],
-            "log_hash_alg": "xxx"
-        },
-        "ima-buf": {},
-        "verification-keys": []
-    }
+    },
+    "keyrings": {},
+    "ima": {
+        "ignored_keyrings": [],
+        "log_hash_alg": "xxx"
+    },
+    "ima-buf": {},
+    "verification-keys": []
 }
 ```
 
 These values could vary in complexity according to the checks being implemented.
+
+While the above example uses a file path as the key, digests could also be accepted if individual file path isn't relevant for the check being performed.
+
+### Option 2: Integrate file metadata into the `digests` field
+
+This option may prove more complex, but ultimately simpler and tidier. Instead of a separate field for files that should be checked, expand the `digests` field to allow for additional data fields on every file path, and store hashes as a separate subkey. For clarity, `digests` should be renamed to something more descriptive, like `file-attributes`. Using the same example as in Option 1, where a user wants to specify that the Keylime verifier should perform an inclusion proof against file `/root/hello.txt`:
+
+```json
+{
+    "meta": {
+        "version": 0
+    },
+    "release": 6.5.0,
+    "file-attributes": {
+        "/root/hello.txt": {
+            "digests": ["a4dc309f..."],
+            "transparency_log_inclusion_proof": true,
+        }
+    },
+    "excludes": [],
+    "keyrings": {},
+    "ima": {
+        "ignored_keyrings": [],
+        "log_hash_alg": "xxx"
+    },
+    "ima-buf": {},
+    "verification-keys": []
+}
+```
+
+This option would be tidier, without an extra field, but would also break compatibility with previous versions of IMA policies (if any exist - as of writing, the IMA policy format overhaul is still in the implementation phase). It may also be harder to parse.
 
 
 ### Test Plan
@@ -316,7 +313,9 @@ this is in the test plan.
 Consider the following in developing an upgrade/downgrade strategy for this enhancement
 -->
 
-Since this is a new field within Keylime's IMA policy schema, upgrades should be trivial, and IMA policies of this new format should still be backwards compatible with older Keylime components.
+A new Keylime policy field would be created if implemented using Option 1. This would allow for fairly trivial upgrade, and IMA policies of this new format should still be backwards compatible with older Keylime components.
+
+If implemented with Option 2, however, backwards and forwards compatibility before/after this proposal would be broken, since conversion would have to happen both ways.
 
 ### Dependency requirements
 
@@ -345,6 +344,8 @@ N/A
 Why should this enhancement _not_ be implemented?
 -->
 
+Accepting arbitrary data as Keylime input may prove a security risk, so it may be worth carefully considering how these extensions are parsed - or even locking down the kinds of data that can be passed via this extension.
+
 ## Alternatives
 
 <!--
@@ -353,7 +354,7 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-Another possibility might be to refactor the way the `digests` dictionary is formatted, to allow for metadata to live right alongside allow/exclude data. This might be harder to parse, and would be less forward/backwards compatible.
+An entirely separate policy framework that lives alongside IMA policies could be another option, but that would run counter to the Keylime project's goals of simplifying inputs and configuration.
 
 ## Infrastructure Needed (optional)
 
