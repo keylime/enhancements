@@ -93,10 +93,26 @@ useful for a wide audience.
 A good summary is probably at least a paragraph in length.
 -->
 
-There are numerous manifest SBOM formats that are being standardised by 
-various standards bodies and open source communities. There is a need to be
-able to verify these different formats and map them to a common internal
-representation. This enhancement proposes a design to do that mapping.
+There are numerous manifest SBOM and attestation formats that are being
+standardised by standards bodies and open source communities. There is a need
+to be able to verify these different formats and map them to a common internal
+representation. 
+
+This enhancement proposes a design to do that mapping and give Keylime the
+manifest agility to work with these different formats and not be fixed to a
+a single format.
+
+One of particular note is the SLSA format which is being developed by under the
+OpenSSF umbrella. This SLSA uses in-toto as a secure supply chain record and
+is being developed to provide a standardised format for software supply chain
+attestations. It is being developed by a number of companies and open source
+projects including Google, Microsoft, GitHub, Hashicorp, and others.
+
+Using SLSA as an example, Keylime would be able to map SLSA attestations to a
+run binary on a keylime agent monitored system. This would allow Keylime to
+verify the SLSA attestation and then verify the binary is untampered and
+ensure end to end supply chain attestations.
+
 
 ## Motivation
 
@@ -135,7 +151,6 @@ rules for their own manifest formats. This will allow the community to grow the
 number of supported manifest formats over time. Keylime could also carry
 exiting mappings for common formats such as SPDX, CycloneDX, and SWID and in-toto.
 
-
 ### Non-Goals
 
 <!--
@@ -145,8 +160,6 @@ and make progress.
 
 Generate the manifest files themselves. This enhancement is only concerned with
 mapping the manifest to a common internal representation.
-
-
 
 ## Proposal
 
@@ -161,8 +174,8 @@ nitty-gritty.
 Develop an interface to allow users to provide their own mapping rules for
 their own manifest formats.
 
-A user can then map Keylime required values from an allow-list to their own
-manifest format.
+A user can then map Keylime required values from any given allow-list format
+to their own selected manifest format.
 
 ### User Stories (optional)
 
@@ -227,6 +240,8 @@ All code is expected to have adequate tests (eventually with coverage
 expectations).
 -->
 
+Serveral different test cases will be deeloped to test the new functionality 
+along with differnt manifests formats to test against.
 ### Upgrade / Downgrade Strategy
 
 <!--
