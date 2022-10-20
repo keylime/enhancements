@@ -94,9 +94,9 @@ A good summary is probably at least a paragraph in length.
 -->
 
 It may not always be evident to a user on what the final location of a file may
-be. This enhancement proposes a new config value that allows a user to have IMA
-measurements with a full path and only work with the filename
-itself.
+be when creating an allowlist. This enhancement proposes a new config value
+that allows a user to work with both filenames with an arbitrary path, alongside
+the current behavior of a full path set.
 
 ## Motivation
 
@@ -106,15 +106,19 @@ this enhancement.  Describe why the change is important and the benefits to user
 -->
 
 Some systems may have files that are in different locations depending on the
-deployment. For example, a file may be in `/opt/my_app` on one system and
-`/usr/my_app` on another. This can cause issues with IMA measurements as the
-location of the file is included in the allowlist. This enhancement proposes
-a new config value that allows a user to have keylime IMA ignore the path of a 
-file and only work with the filename itself.
+deployment. For example, a file `widgets` may be in `/opt/my_app` on one system 
+and `/usr/my_app` on another. This enhancement proposes a new config value that
+allows a user to have keylime IMA ignore the path of a file if not present.
 
 This will especially be useful for users who want an application monitored by
-keylime to be able to be deployed in different locations, more than an entire
-OS.
+keylime that may deploy to different systems with different paths.
+
+It would then allow an upstream project to generate signed allowlists that can
+be used by downstream systems without having to modify the allowlist to set
+deployment specific paths.
+
+However, those wanting the stronger guarantees of a full path set will still be
+able to leverage that behavior.
 
 ### Goals
 
@@ -123,7 +127,8 @@ List the specific goals of the enhancement.  What is it trying to achieve?  How 
 know that this has succeeded?
 -->
 
-Allow users to only state a filename to be measured and not the full path.
+Allow users to only state a filename to be measured and not always the full
+path.
 
 ### Non-Goals
 
@@ -142,10 +147,11 @@ implementation.  The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-A value `optional-paths` is introduced to the `keylime.conf` file. When this value
-is set to `True`, if a file is without a leading POSIX path separator then the
-file is still measured. If the file has a leading POSIX path separator then the
-file is measured still, as per the current behaviour.
+A bool config value `optional-paths` is introduced to the `keylime.conf` file.
+When this value is set to `True`, if a file is without a leading POSIX path
+then the file is still measured. If the file has a leading POSIX path separator
+then the file is measured, as per the current behaviour, where the full path
+dictates the comparision of the allowlist value to that recorded by IMA.
 
 ### User Stories (optional)
 
