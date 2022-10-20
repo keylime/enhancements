@@ -95,7 +95,7 @@ A good summary is probably at least a paragraph in length.
 
 It may not always be evident to a user on what the final location of a file may
 be. This enhancement proposes a new config value that allows a user to have IMA
-measurements ignore the location of a file and only work with the filename
+measurements with a full path and only work with the filename
 itself.
 
 ## Motivation
@@ -106,11 +106,15 @@ this enhancement.  Describe why the change is important and the benefits to user
 -->
 
 Some systems may have files that are in different locations depending on the
-system. For example, a file may be in `/usr/bin` on one system and `/bin` on
-another. This can cause issues with IMA measurements as the location of the file
-is included in the measurement. This enhancement proposes a new config value
-that allows a user to have IMA measurements ignore the location of a file and
-only work with the filename itself.
+deployment. For example, a file may be in `/opt/my_app` on one system and
+`/usr/my_app` on another. This can cause issues with IMA measurements as the
+location of the file is included in the allowlist. This enhancement proposes
+a new config value that allows a user to have keylime IMA ignore the path of a 
+file and only work with the filename itself.
+
+This will especially be useful for users who want an application monitored by
+keylime to be able to be deployed in different locations, more than an entire
+OS.
 
 ### Goals
 
@@ -138,9 +142,10 @@ implementation.  The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-A value `ignore-path` is introduced to the `keylime.conf` file. When this value
-is set to `True`, the location of a file is ignored when performing IMA
-measurements on the verifier.
+A value `optional-paths` is introduced to the `keylime.conf` file. When this value
+is set to `True`, if a file is without a leading POSIX path separator then the
+file is still measured. If the file has a leading POSIX path separator then the
+file is measured still, as per the current behaviour.
 
 ### User Stories (optional)
 
@@ -151,9 +156,9 @@ the system.  The goal here is to make this feel real for users without getting
 bogged down.
 -->
 
-I have a system that has a file that is in different locations depending on the
-deployment. I want to measure this file but I don't want to have to specify the
-full path to the file, as the value is arbitrary.
+I have a system that has a file that may be situated in an arbitary location
+depending on the deployment. I want to measure this file but I don't want to
+have to specify the full path to the file.
 
 #### Story 1
 
@@ -187,8 +192,10 @@ required) or even code snippets.  If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss them.
 -->
 
-The `ignore-path` value is added to the `keylime.conf` file. When this value is
-set to `True`, the location of a file is ignored
+The `optional-paths` value is added to the `keylime.conf` file. When this value is
+set to `True`, the location of a file is ignored if no proceeding POSIX path is
+specified. If a proceeding POSIX path is specified, the file is measured as per
+the current behaviour.
 
 This will be set as False by default, meaning it is an opt-in feature.
 
