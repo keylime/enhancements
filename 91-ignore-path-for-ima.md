@@ -205,6 +205,14 @@ the current behaviour.
 
 This will be set as False by default, meaning it is an opt-in feature.
 
+If a file is specified without a file path, alongside a duplicate filename with
+a path, the file with the file path will be measured and the file without the
+file path will be ignored.
+
+e.g. 
+
+`as983o... widget` will be ignored if `as983o... /opt/my_app/widget` is present.
+
 ### Test Plan
 
 <!--
