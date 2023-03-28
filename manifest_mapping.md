@@ -21,7 +21,7 @@ To get started with this template:
   start with the high-level sections and fill out details incrementally in
   subsequent PRs.
 -->
-# enhancement-NNNN: Your short, descriptive title
+# manifest-mapping-NNNN: Keylime manifest mapping
 
 <!--
 This is the title of your enhancement.  Keep it short, simple, and descriptive.  A good
@@ -93,12 +93,44 @@ useful for a wide audience.
 A good summary is probably at least a paragraph in length.
 -->
 
+There are numerous manifest SBOM and attestation formats that are being
+standardised by standards bodies and open source communities. There is a need
+to be able to verify these different formats and map them to a common internal
+representation. 
+
+This enhancement proposes a design to do that mapping and give Keylime the
+manifest agility to work with these different formats and not be fixed to a
+a single format.
+
+One of particular note is the SLSA format which is being developed by under the
+OpenSSF umbrella. This SLSA uses in-toto as a secure supply chain record and
+is being developed to provide a standardised format for software supply chain
+attestations. It is being developed by a number of companies and open source
+projects including Google, Microsoft, GitHub, Hashicorp, and others.
+
+Using SLSA as an example, Keylime would be able to map SLSA attestations to a
+run binary on a keylime agent monitored system. This would allow Keylime to
+verify the SLSA attestation and then verify the binary is untampered and
+ensure end to end supply chain attestations.
+
+
 ## Motivation
 
 <!--
 This section is for explicitly listing the motivation, goals and non-goals of
 this enhancement.  Describe why the change is important and the benefits to users.
 -->
+
+The motivation for this enhancement request is driven by the increasing amount
+of standardisation work going on in the software composition analysis area.
+
+The goal is to provide a common framework for mapping different manifest formats
+to a unified internal representation within keylime. This will allow keylime to
+provide a consistent verification experience for different users regardless of
+the tools they use to generate their software bill of materials.
+
+This will then allow Keylime to ingest multiple SBOM formats, without requiring
+any changes to the verifier or agent each time a new format is introduced.
 
 ### Goals
 
@@ -107,12 +139,27 @@ List the specific goals of the enhancement.  What is it trying to achieve?  How 
 know that this has succeeded?
 -->
 
+The goal of this enhancement is to provide a framework for mapping different
+manifest formats to standard Keylime allow-list values such as component name,
+version, and hashes.
+
+This will prevent keylime becoming locked-in to a single manifest format for
+capturing components required for IMA style attestations.
+
+An interface will be introduced to allow users to provide their own mapping
+rules for their own manifest formats. This will allow the community to grow the
+number of supported manifest formats over time. Keylime could also carry
+exiting mappings for common formats such as SPDX, CycloneDX, and SWID and in-toto.
+
 ### Non-Goals
 
 <!--
 What is out of scope for this enhancement?  Listing non-goals helps to focus discussion
 and make progress.
 -->
+
+Generate the manifest files themselves. This enhancement is only concerned with
+mapping the manifest to a common internal representation.
 
 ## Proposal
 
@@ -124,6 +171,12 @@ implementation.  The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
+Develop an interface to allow users to provide their own mapping rules for
+their own manifest formats.
+
+A user can then map Keylime required values from any given allow-list format
+to their own selected manifest format.
+
 ### User Stories (optional)
 
 <!--
@@ -132,6 +185,11 @@ Include as much detail as possible so that people can understand the "how" of
 the system.  The goal here is to make this feel real for users without getting
 bogged down.
 -->
+
+I as a user would like Keylime to ingest multiple manifest formats so that I can
+use other tooling to generate a software bill of materials and use Keylime
+to verify the integrity of my system, according to the components listed in
+the manifest.
 
 #### Story 1
 
@@ -182,6 +240,8 @@ All code is expected to have adequate tests (eventually with coverage
 expectations).
 -->
 
+Serveral different test cases will be deeloped to test the new functionality 
+along with differnt manifests formats to test against.
 ### Upgrade / Downgrade Strategy
 
 <!--
