@@ -22,11 +22,11 @@
 
 ## Release Signoff Checklist
 
-- [ ] Enhancement issue in release milestone, which links to pull request in [keylime/enhancements]
-- [ ] Core members have approved the issue with the label `implementable`
-- [ ] Design details are appropriately documented
-- [ ] Test plan is in place
-- [ ] User-facing documentation has been created in [keylime/keylime-docs]
+- [x] Enhancement issue in release milestone, which links to pull request in [keylime/enhancements]
+- [x] Core members have approved the issue with the label `implementable`
+- [x] Design details are appropriately documented
+- [x] Test plan is in place
+- [x] User-facing documentation has been created in [keylime/keylime-docs]
 
 ## Summary
 
