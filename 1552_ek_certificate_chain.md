@@ -70,9 +70,9 @@ access to the chain.
 
 ## Proposal
 
-* keylime_agent, send `ek_ca_chain` to registrar
-* keylime registrar, store `ek_ca_chain` in database
-* keylime tenant, verify `ekcert` against `ek_ca_chain` and `ek_ca_chain` against `tpm_cert_store`
+* keylime_agent, add `ek_ca_chain` to `ekcert` field and send to registrar. Update `ekcert` field to use PEM format, so multiple certificates can be stored in the field and a marker exists that shows the start and end of each certificate.
+* keylime registrar, store `ekcert` in database, as it is already done.
+* keylime tenant, verify chain in `ekcert`. Use "top" certificate from chain to verifiy against `tpm_cert_store`. In case of a single certificate the check of the chain is immediately finished as there is no certificate "above" and the `ekcert` is the "top" certificate that will be verified against the `tpm_cert_store`.
 
 
 ### User Stories
@@ -86,18 +86,10 @@ in the TPM.
 ### Risks and Mitigations
 
 #### Registrar/Tenant could be become incompatible with older database
-* Update database to new scheme, only a single key is added to the registar db 'ek_ca_chain'
-
-#### Registrar/Tenant could become incompatible with older Agent
-* Make 'ek_ca_chain' optional
+* Update existing database values for `ekcert` to PEM format.
 
 #### Additional memory will be required to store the chain in the database.
 * If the feature can't be used, due to missing certificates in the TPM, the memory footprint will stay around the same.
-
-#### Providing big chains as attack
-* Limit the amount of allowed chain size
-* Use mTLS to only allow verified clients access
-
 
 ## Design Details
 First some words from TCG EK documentations:
