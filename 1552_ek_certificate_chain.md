@@ -70,7 +70,7 @@ access to the chain.
 
 ## Proposal
 
-* keylime_agent, add `ek_ca_chain` to `ekcert` field and send to registrar. Update `ekcert` field to use PEM format, so multiple certificates can be stored in the field and a marker exists that shows the start and end of each certificate.
+* keylime_agent: update `ekcert` field to use PEM format, so multiple certificates can be stored in the field and a marker exists that shows the start and end of each certificate.
 * keylime registrar, store `ekcert` in database, as it is already done.
 * keylime tenant, verify chain in `ekcert`. Use "top" certificate from chain to verifiy against `tpm_cert_store`. In case of a single certificate the check of the chain is immediately finished as there is no certificate "above" and the `ekcert` is the "top" certificate that will be verified against the `tpm_cert_store`.
 
