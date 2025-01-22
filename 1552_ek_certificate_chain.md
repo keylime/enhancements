@@ -130,7 +130,7 @@ The keylime registrar only needs to store the certificate chain in the database.
 The keylime tenant must detect the presence of an EK Certificate Chain and verify the
 EK Cert against the chain, and finally the top level certificate against the `tpm_cert_store`.
 
-The flow can be kept mostly as it is in `check_ek`. In case of a present ek_ca_chain, the ek must be verified against the provided chain and in case of a success the ek will be replaced by the top level certificate from the chain. Afterwards the flow can be kept as it was.
+The flow can be kept mostly as it is in `check_ek`. In case of multiple certs in `ekcert` , the ek must be verified against the provided chain and in case of a success the ek will be replaced by the top level certificate from the chain. Afterwards the flow can be kept as it was.
 
 See provided implementation:
 * rust-keylime: https://github.com/ematery/rust-keylime/commit/ff448ec9f68a50b89685f8f4f3e6777d8c80ef1b
