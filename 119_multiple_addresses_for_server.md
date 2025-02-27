@@ -51,6 +51,10 @@ template.
     - [Notes/Constraints/Caveats (optional)](#notesconstraintscaveats-optional)
     - [Risks and Mitigations](#risks-and-mitigations)
   - [Design Details](#design-details)
+        - [1. Pull mode, 1 group, 1 server per group:](#1-pull-mode-1-group-1-server-per-group)
+        - [2. Push mode, 1 group, 1 server per group:](#2-push-mode-1-group-1-server-per-group)
+          - [3. Push mode, 1 group, multiple servers per group:](#3-push-mode-1-group-multiple-servers-per-group)
+          - [4. Push mode, multiple groups, multiple servers per group:](#4-push-mode-multiple-groups-multiple-servers-per-group)
     - [Test Plan](#test-plan)
     - [Upgrade / Downgrade Strategy](#upgrade--downgrade-strategy)
     - [Dependencie requirements](#dependencie-requirements)
@@ -184,16 +188,45 @@ proposal will be implemented, this is the place to discuss them.
 ---WIP---
 
 The agent config will need to be adapted. 
-A new config option to replace `registrar_ip` and `registrar_port` will be added, called `server_addresses` (?).
-This will accept the following configurations:
-1. `server_addresses = n.n.n.n` with just an address specified, the agent will use the address as the Registrar with default port and protocol in the pull model, and return a "no verifier address" config error in the push model. 
-2. `server_addresses = n.n.n.n:pppp` as 1 but with port specified.
-3. `server_addresses = prot//n.n.n.n:pppp` as 1 but with no defaults.
-4. `server_addresses = { "Registrars" : ["n.n.n.n", "n.n.n.n:pppp", "prot//n.n.n.n:pppp"]}` will enable multiple Registrar addresses for pull, and give the "no verifier address" config error in the push model.
-5. `server_addresses = { "Registrars" : ["n.n.n.n", "n.n.n.n:pppp", "prot//n.n.n.n:pppp"], "Verifiers" : ["n.n.n.n", "n.n.n.n:pppp", "prot//n.n.n.n:pppp"]}` enables multiple addresses for Registrar and Verifier with a single backend. If this is specified in the pull model a warning will be emitted with "ignoring Verifier addresses in config".
-6. `server_addresses = { {"Registrars" : ["n.n.n.n", "n.n.n.n:pppp", "prot//n.n.n.n:pppp"], "Verifiers" : ["n.n.n.n", "n.n.n.n:pppp", "prot//n.n.n.n:pppp"]},{"Registrars" : ["n.n.n.n", "n.n.n.n:pppp", "prot//n.n.n.n:pppp"], "Verifiers" : ["n.n.n.n", "n.n.n.n:pppp", "prot//n.n.n.n:pppp"]}}` enables multiple blocks of linked Registrars and Verifiers, with different backends betweend blocks. Gives the same warning as 5 in the pull model.
+A new config option to replace `registrar_ip` and `registrar_port` will be added, called `servers` (?). Each address till be specified as `"[scheme://]host[:port]"` with scheme and port optional. If just host is given, eg. `n.n.n.n` then default Keylime ports and protocols will be used, if host and port is provided, eg. `n.n.n.n:pppp` then just the default protocol will be used.
 
-A new config option `verification_duplication = 1`(?) will be added, which will allow a user to specify how many of the blocks to register and verify with. This would require option 6 from `server_addresses` so that there are at least 2 backends, and the maximum value would be equal to the number of backends, requiring registration and verification to all backends. The default will be 1, and changing this value will result in a (warning/error) in the situation where only one block is given, or the config is like 1-5.
+This will accept the following configurations:
+##### 1. Pull mode, 1 group, 1 server per group:
+
+        [[servers]]
+        registrars = [ "reg1.example.com" ]
+
+##### 2. Push mode, 1 group, 1 server per group:
+
+        [[servers]]
+        registrars = [ "reg1.example.com" ]
+        verifiers = [ "ver1.example.com" ]
+
+###### 3. Push mode, 1 group, multiple servers per group:
+
+        [[servers]]
+        registrars = [ "reg1.example.com", "reg2.example.com" ]
+        verifiers = [ "ver1.example.com", "ver2.example.com" ]
+
+###### 4. Push mode, multiple groups, multiple servers per group:
+
+        [[servers]]
+        registrars = [ "reg1.example.com", "reg2.example.com" ]
+        verifiers = [ "ver1.example.com", "ver2.example.com" ]
+
+        [[servers]]
+        registrars = [ "reg3.example.com", "reg4.example.com" ]
+        verifiers = [ "ver3.example.com", "ver4.example.com" ]
+
+        [[servers]]
+        registrars = [ "reg6.example.com" ]
+        verifiers = [ "ver6.example.com" ]
+
+If Pull mode is being used but verifier addresses are provided, a config warning will be emitted noting that the specified verifier addresses will not be used.
+
+If Push mode is being used and no verifier addresses are given, an error specifying that no verifier address has been provided will be given.
+
+A new config option `verification_duplication = 1`(?) will be added, which will allow a user to specify how many of the blocks to register and verify with. This would require option 4 for `servers` config option so that there are at least 2 backends, and the maximum value would be equal to the number of backends, requiring registration and verification to all backends. The default will be 1, and changing this value will result in a (warning/error) in the situation where only one block is given, or the config is like 1-3.
 
 ### Test Plan
 
