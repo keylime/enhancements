@@ -141,7 +141,7 @@ When adding agent to attestation:
 4. verifier uses mTLS certificate to establish a connection with the agent and sends K key on successful attestation
 
 
-# When mTLS is disables
+# When mTLS is disabled
 The registration process now looks like this:
 
 1. agent sends the usual information: AK, EK, (EK cert) and NK in `transport_key` field (PEM encoded)
