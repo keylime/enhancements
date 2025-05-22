@@ -21,7 +21,7 @@ To get started with this template:
   start with the high-level sections and fill out details incrementally in
   subsequent PRs.
 -->
-# enhancement-121: One Shot Attestation
+# enhancement-121: Verification API
 
 <!--
 A table of contents is helpful for quickly jumping to sections of a enhancement and for
@@ -60,37 +60,41 @@ template.
 ## Summary
 
 Create new API(s) and tools to allow hosts to check their potential
-attestation data (PCRs, TPM quote, IMA measurement list, Measured Boot
-log, etc).  This would allow a third party (or simple tool script shipped
-with Keylime) to gather the attestation report data on it's own and send
-it to Keylime for a one-time validation.
+attestation evidence (PCRs, TPM quote, IMA measurement list, Measured
+Boot log, etc) against policy.  This would allow a third party (or simple
+tool script shipped with Keylime) to gather the attestation evidence
+data on it's own and send it to Keylime for a one-time validation.
 
 No continuous attestation, no trust in the origins of the attestation
-report, no trust established through key derivation protocol, etc. But
-we do answer the "what if" about the attestation report data itself.
+evidence, no trust established through key derivation protocol, etc. But
+we do answer the "what if" about the attestation evidence would pass
+the given policy
 
 Because this request happens out of band and is not part of the regular
 registration, tenant-establish-trust and agent-pull cycle of Keylime
 it can be considered as a light form of the agent-driven attestation
 model. Not useful for fully agent-driven workloads, but would be useful
-for one-off enrollment style workloads.
+for one-off enrollment style workloads. It is also useful for CI/CD
+pipelines that are testing new versions of host configuration against
+new versions of policy before rolling out to production systems.
 
 ## Motivation
 
 There are several scenarios where we would like to check some attestation
-data to see if they would pass attestation without having the full trust
-model and continous attestation cycle of a fully registered and monitored
-node in Keylime. Maybe it's part of a pre-check enrollment process,
-or maybe part of some 3rd party tool that manages the target node.
+data to see if they would pass attestation against a given policy without
+having the full trust model and continous attestation cycle of a fully
+registered and monitored node in Keylime. Maybe it's part of a pre-check
+enrollment process, or maybe part of some 3rd party tool that manages
+the target node.
 
 These scenarios have different threat and trust models, so as long as
 we're explicit about the lack of trust chain in validating the attestation
-data, it's a useful feature to expose Keylime's full featured IMA and
-Measured Boot validation cababilities.
+data against the given policy, it's a useful feature to expose Keylime's
+full featured IMA and Measured Boot validation cababilities.
 
 ### Goals
 
-1. Create a new API in the verifier to allow for one-shot attestations.
+1. Create a new API in the verifier to allow for verification of evidence against policy.
 
 2. Create a new one-shot attestation script that would collect data on
 a host and verify it using the above API.
@@ -104,7 +108,7 @@ We are not implementing the proposed agent-driven attestation model.
 
 ## Proposal
 
-Create a new API on the verifier at `/oneshot` that will take the
+Create a new API on the verifier at `/verify` that will take the
 following example JSON data payload:
 
     {
@@ -188,7 +192,13 @@ handle the rest of the device's lifecycle on it's own.
 
 #### Story 2
 
-TBD
+I have a large production system running keylime. All changes to
+this system go through a CI/CD pipeline before being pushed out. It is
+currently very hard to test changes to keylime policy in this pipeline. It
+would be nice to have a simple API on an existing keylime system that
+could be used as an integration point to check whether changes to the
+system violate existing keylime policies and/or if changes to keylime
+policy will continue to pass on existing systems.
 
 
 ### Risks and Mitigations
