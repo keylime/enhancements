@@ -161,11 +161,17 @@ The API will return a response like the following:
         ]
     }
 
+In the future this payload could also contain a signature from Keylime
+that the attestation was successful (or failed). This would be useful
+as a proof that could be stored for auditing or verification to protect
+against spoofing.
+
 Separately a new tool named `keylime_oneshot_attestation` will be created
 as an example of using this API. This script will gather the information
 about the host and take user-supplied attestation policy and send them
 to the API for validation. It will serve as a sample client of the new
 API as well as being a useful tool for people to use on target hosts.
+
 
 
 ### User Stories (optional)
