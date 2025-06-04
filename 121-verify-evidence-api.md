@@ -1,26 +1,3 @@
-<!--
-**Note:** When your enhancement is complete, all of these comment blocks should be removed.
-
-To get started with this template:
-
-- [ ] **Create an issue in keylime/enhancements**
-  When filing an enhancement tracking issue, please ensure to complete all
-  fields in that template.  One of the fields asks for a link to the enhancement.  You
-  can leave that blank until this enhancement is made a pull request, and then
-  go back to the enhancement and add the link.
-- [ ] **Make a copy of this template.**
- name it `NNNN-short-descriptive-title`, where `NNNN` is the issue number (with no
-  leading-zero padding) assigned to your enhancement above.
-- [ ] **Fill out this file as best you can.**
-  At minimum, you should fill in the "Summary", and "Motivation" sections.
-  These should be easy if you've preflighted the idea of the enhancement with the
-  appropriate SIG(s).
-- [ ] **Merge early and iterate.**
-  Avoid getting hung up on specific details and instead aim to get the goals of
-  the enhancement clarified and merged quickly.  The best way to do this is to just
-  start with the high-level sections and fill out details incrementally in
-  subsequent PRs.
--->
 # enhancement-121: Verification API
 
 <!--
@@ -108,7 +85,7 @@ We are not implementing the proposed agent-driven attestation model.
 
 ## Proposal
 
-Create a new API on the verifier at `/verify` that will take the
+Create a new API on the verifier at `/verify/evidence` that will take the
 following example JSON data payload:
 
     {
@@ -150,7 +127,7 @@ response as we can for the failure(s).
 The API will return a response like the following:
 
     {
-        "success": 0,
+        "valid": 0,
         "failures": [
             {
                 "type": "ima.validation.ima-ng.not_in_allowlist",
@@ -173,15 +150,8 @@ to the API for validation. It will serve as a sample client of the new
 API as well as being a useful tool for people to use on target hosts.
 
 
-
 ### User Stories (optional)
 
-<!--
-Detail the things that people will be able to do if this enhancement is implemented.
-Include as much detail as possible so that people can understand the "how" of
-the system.  The goal here is to make this feel real for users without getting
-bogged down.
--->
 
 #### Story 1
 
